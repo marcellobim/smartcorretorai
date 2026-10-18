@@ -52,7 +52,7 @@ export type RuntimeDependencies = {
   upload(outputPath: string, bytes: Uint8Array): Promise<void>
   now(): number
   log(event: string, details: Record<string, unknown>): void
-  prepareEconomy(input: { userId: string; clientRequestId: string; imageCount: number; transformationType: string; decorationStyle: string | null }): Promise<Record<string, any>>
+  prepareEconomy(input: { userId: string; clientRequestId: string; imageCount: number; transformationType: string; decorationStyle: string | null; landingTrial: boolean }): Promise<Record<string, any>>
   recoverEconomy(input: { userId: string; clientRequestId: string }): Promise<{ request: Record<string, any> | null; items: Record<string, any>[] }>
   claimStage(input: { userId: string; clientRequestId: string; itemIndex: number; stage: 'single' | 'remove' | 'redecorate' }): Promise<{ item: Record<string, any>; claimed: boolean; claimToken: string | null }>
   checkpointEconomy(input: { userId: string; clientRequestId: string; itemIndex: number; claimToken: string; result: Record<string, unknown>; usage?: SafeUsage; outputSize?: string; estimatedCostUsdMicros?: number }): Promise<void>
@@ -153,18 +153,20 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
       const imageCount = Number(input.image_count)
       const transformationType = String(input.transformation_type ?? '')
       const decorationStyle = input.decoration_style === undefined || input.decoration_style === null ? null : String(input.decoration_style)
+      const landingTrial = input.landing_trial === true
       const requiresStyle = virtualStagingRequiresStyle(transformationType)
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
         || !Number.isInteger(imageCount) || imageCount < 1 || imageCount > 5
         || !VIRTUAL_STAGING_TRANSFORMATION_TYPES.includes(transformationType as typeof VIRTUAL_STAGING_TRANSFORMATION_TYPES[number])
         || (requiresStyle && !VIRTUAL_STAGING_DECORATION_STYLES.includes(decorationStyle as typeof VIRTUAL_STAGING_DECORATION_STYLES[number]))
         || (!requiresStyle && decorationStyle !== null)
-        || Object.keys(input).some(key => !['action', 'client_request_id', 'image_count', 'transformation_type', 'decoration_style'].includes(key))) {
+        || (input.landing_trial !== undefined && typeof input.landing_trial !== 'boolean')
+        || Object.keys(input).some(key => !['action', 'client_request_id', 'image_count', 'transformation_type', 'decoration_style', 'landing_trial'].includes(key))) {
         throw new VirtualStagingTestError('invalid_economic_request', 400, 'Não foi possível preparar esta criação.')
       }
       try {
         const unitCost = getVirtualStagingUnitCost(transformationType)
-        const prepared = await deps.prepareEconomy({ userId: user.id, clientRequestId, imageCount, transformationType, decorationStyle })
+        const prepared = await deps.prepareEconomy({ userId: user.id, clientRequestId, imageCount, transformationType, decorationStyle, landingTrial })
         return response({
           ok: true,
           request: {
@@ -177,6 +179,7 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
         })
       } catch (error) {
         const message = String(error instanceof Error ? error.message : error)
+        if (/VIRTUAL_STAGING_TRIAL_ALREADY_USED/i.test(message)) throw new VirtualStagingTestError('virtual_staging_trial_already_used', 409, 'Este teste grátis já foi utilizado.')
         if (/insuficient/i.test(message)) throw new VirtualStagingTestError('insufficient_smart_tokens', 402, 'Saldo de Smart Tokens insuficiente para esta criação.')
         throw error
       }

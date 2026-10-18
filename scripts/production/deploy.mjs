@@ -10,6 +10,8 @@ import {
  BANNER_RECOVERY_RELEASE,
  CAMPAIGN_LOCALIZATION_FUNCTIONS,
  AI_STUDIO_COMMERCIAL_FUNCTIONS,
+ VIRTUAL_STAGING_TRIAL_FUNCTIONS,
+ VIRTUAL_STAGING_TRIAL_MIGRATION,
  adminApiVersion,
  tiktokContentPostingVersion,
  bannerFunctionVersion,
@@ -703,13 +705,15 @@ const deployRealEstateVideoLocalization=mode==='--real-estate-video-localization
 const deployCampaignLocalization=mode==='--campaign-localization'
 const deployTextCampaignHotfix=mode==='--text-campaign-hotfix'
 const deployAiStudioCommercialHotfix=mode==='--ai-studio-commercial-hotfix'
- if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
+const deployVirtualStagingTrial=mode==='--virtual-staging-trial'
+ if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix||deployVirtualStagingTrial))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
  if(deployProfessionalIdentity&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: lote profissional pertence somente ao target snetia')
  if(deployRealEstateVideoLocalization&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: localização de Real Estate Video pertence somente ao target snetia')
  if(deployCampaignLocalization&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: localização de campanhas pertence somente ao target snetia')
  if(deployTextCampaignHotfix&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: hotfix da Text Campaign pertence somente ao target snetia')
  if(deployAiStudioCommercialHotfix&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: hotfix do Commercial Real Estate pertence somente ao target snetia')
+ if(deployVirtualStagingTrial&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: trial de Virtual Staging pertence somente ao target snetia')
 const selectedFunctions=edgeScope(args)
 const sha=git('rev-parse','HEAD')
 const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()
@@ -738,6 +742,11 @@ const previousAiStudioCommercialVersions=deployAiStudioCommercialHotfix?Object.f
  if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version))throw Error('DEPLOY BLOQUEADO: função do Commercial Real Estate inativa ou sem versão: '+slug)
  return [slug,fn.version]
 })):null
+const previousVirtualStagingTrialVersion=deployVirtualStagingTrial?(()=>{
+ const fn=functionsList().find(item=>item?.slug==='virtual-staging-image-test')
+ if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version))throw Error('DEPLOY BLOQUEADO: virtual-staging-image-test inativa ou sem versão')
+ return fn.version
+})():null
 if(deployAdminApi&&previousAdminVersion!==Number(process.env.ADMIN_API_EXPECTED_VERSION))throw Error('DEPLOY BLOQUEADO: versão da admin-api difere do backup validado')
 let bannerRuntimeClosure=null,bannerConfigBlob=null
 if(deployBannerRecovery){
@@ -753,6 +762,11 @@ if(deployBannerRecovery){
 else {
  if(!candidateOnly&&!isAncestor(current.sha,sha))throw Error(ancestryError)
  if(git('diff','HEAD','--name-only'))throw Error('DEPLOY BLOQUEADO: crie checkpoint antes de publicar')
+ if(deployVirtualStagingTrial){
+  if(JSON.stringify(selectedFunctions)!==JSON.stringify(VIRTUAL_STAGING_TRIAL_FUNCTIONS))throw Error('DEPLOY BLOQUEADO: o trial de Virtual Staging só pode publicar virtual-staging-image-test')
+  const migrations=git('diff','--name-only',current.sha,sha,'--','supabase/migrations').split('\n').filter(Boolean)
+  if(JSON.stringify(migrations)!==JSON.stringify([VIRTUAL_STAGING_TRIAL_MIGRATION]))throw Error('DEPLOY BLOQUEADO: o trial de Virtual Staging só pode publicar a migration aprovada')
+ }
 }
 smoke(root)
 if(deployAdminApi)run(process.execPath,['--test','--test-isolation=none','scripts/production/admin-release.test.mjs','scripts/production/guard.test.mjs'],root,true)
@@ -836,12 +850,12 @@ if(deployBannerRecovery){
  }
 }
 
-if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix){
+if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix||deployVirtualStagingTrial){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
  // gerar-hero-ia shares the Banner publication fallback with the campaign
  // release. Include its tracked non-Supabase runtime closure when this
  // narrowly-scoped release deploys that function from the isolated archive.
- const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:deployCampaignLocalization?['supabase/functions','supabase/config.toml','core/copy-engine/index.ts','server/guest-banner/promotion.mjs','server/guest-banner/result.mjs']:['supabase/functions','supabase/config.toml']
+ const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:deployCampaignLocalization?['supabase/functions','supabase/config.toml','core/copy-engine/index.ts','server/guest-banner/promotion.mjs','server/guest-banner/result.mjs']:deployVirtualStagingTrial?['supabase/functions','supabase/config.toml',VIRTUAL_STAGING_TRIAL_MIGRATION]:['supabase/functions','supabase/config.toml']
  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)
  if(deployBannerRecovery)validateBannerConfigArtifact(readZipEntryBytes(edgeZip,bannerConfigPath),bannerConfigBlob,'ZIP Edge')
  if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',edgeZip,'-DestinationPath',edgeStage])
@@ -853,8 +867,16 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
   validateBannerConfigArtifact(readFileSync(path.join(edgeStage,bannerConfigPath)),bannerConfigBlob,'staging Edge')
   await validateBannerRuntimeBundle({repoRoot:edgeStage,closure:stagedClosure})
  }
+ if(deployVirtualStagingTrial){
+  const migrationPath=path.join(edgeStage,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/'))
+  if(!existsSync(migrationPath)||hash(readFileSync(migrationPath))!==hash(readFileSync(path.join(root,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de trial divergente no artefato isolado')
+  run(edgeCli,['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root,true)
+  const afterMigration=await official()
+  if(afterMigration.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a migration do trial')
+ }
  if(deployAdminApi&&adminVersion()!==previousAdminVersion)throw Error('DEPLOY BLOQUEADO: admin-api mudou durante o build')
  if(deployBannerRecovery&&bannerVersion()!==previousBannerVersion)throw Error('DEPLOY BLOQUEADO: gerar-hero-ia mudou durante o build')
+ if(deployVirtualStagingTrial&&functionsList().find(item=>item?.slug==='virtual-staging-image-test')?.version!==previousVirtualStagingTrialVersion)throw Error('DEPLOY BLOQUEADO: virtual-staging-image-test mudou durante o build')
  const deployArgs=['functions','deploy',...selectedFunctions,'--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--use-api','--workdir',edgeStage]
  if(deployBannerRecovery)deployArgs.push('--no-verify-jwt')
  run(edgeCli,deployArgs,root,true)
@@ -883,6 +905,11 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
    return [slug,fn.version]
   }))
   console.log(JSON.stringify({mode:'ai-studio-commercial-hotfix',previousAiStudioCommercialVersions,currentAiStudioCommercialVersions:current}))
+ }
+ if(deployVirtualStagingTrial){
+  const fn=functionsList().find(item=>item?.slug==='virtual-staging-image-test')
+  if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version)||fn.version<=previousVirtualStagingTrialVersion)throw Error('DEPLOY BLOQUEADO: versão de virtual-staging-image-test não avançou')
+  console.log(JSON.stringify({mode:'virtual-staging-trial',previousVirtualStagingTrialVersion,newVirtualStagingTrialVersion:fn.version,migration:VIRTUAL_STAGING_TRIAL_MIGRATION}))
  }
  if(deployAdminApi){
   const version=adminVersion()

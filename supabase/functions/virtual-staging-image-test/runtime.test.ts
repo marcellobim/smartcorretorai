@@ -116,6 +116,27 @@ test('rejeita usuário não autenticado sem baixar arquivo ou chamar OpenAI', as
   assert.equal(edits, 0)
 })
 
+test('reports a previously used Virtual Staging trial before upload or provider work', async () => {
+  let providerCalls = 0
+  const result = await json(await handleVirtualStagingImageTest(request({
+    action: 'prepare', client_request_id: requestId, image_count: 1, transformation_type: 'furnish', decoration_style: 'cozy',
+  }), dependencies({
+    prepareEconomy: async () => { throw new Error('VIRTUAL_STAGING_TRIAL_ALREADY_USED') },
+    openAI: { editImage: async () => { providerCalls += 1; throw new Error('must not call provider') } },
+  })))
+  assert.equal(result.code, 'virtual_staging_trial_already_used')
+  assert.equal(providerCalls, 0)
+})
+
+test('passes the Landing trial flag only when the authenticated request opts in', async () => {
+  const preparedFlags: boolean[] = []
+  const common = { action: 'prepare', client_request_id: requestId, image_count: 1, transformation_type: 'furnish', decoration_style: 'cozy' }
+  const capture = () => dependencies({ prepareEconomy: async ({ landingTrial }) => { preparedFlags.push(landingTrial); return { status: 'processing' } } })
+  assert.equal((await handleVirtualStagingImageTest(request(common), capture())).status, 200)
+  assert.equal((await handleVirtualStagingImageTest(request({ ...common, landing_trial: true }), capture())).status, 200)
+  assert.deepEqual(preparedFlags, [false, true])
+})
+
 test('exige o módulo furnish-renovate e rejeita outros módulos', async () => {
   for (const module of [undefined, 'life-in-property', 'broker-presentation']) {
     const body = { ...validBody, module }

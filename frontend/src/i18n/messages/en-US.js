@@ -49,6 +49,7 @@ export default Object.freeze({
   }),
   virtualStaging: Object.freeze({
     continue: 'Continue', yes: 'Yes', no: 'No', edit: 'Edit', optional: 'optional',
+    trial: Object.freeze({ notice: 'Your free trial includes one Virtual Staging image to furnish an empty room.', plans: 'View Plans and Smart Tokens' }),
     purpose: Object.freeze({ sale: 'For Sale', rent: 'For Rent' }),
     speech: Object.freeze({ generated: 'Create the speech for me', custom: 'Write my own speech', placeholder: 'Write exactly what will be spoken', limit: 'Up to {count} words. The text will be used literally.' }),
     lifeScene: Object.freeze({ young: 'Young adults', young_dog: 'Young adults with a dog', young_cat: 'Young adults with a cat', adult: 'Adults', adult_dog: 'Adults with a dog', adult_cat: 'Adults with a cat', senior: 'Seniors', senior_dog: 'Seniors with a dog', senior_cat: 'Seniors with a cat' }),

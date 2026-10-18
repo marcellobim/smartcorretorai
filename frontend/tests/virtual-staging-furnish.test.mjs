@@ -38,7 +38,7 @@ test('uses Snetia Space as the product name and Virtual Staging as the first mod
     description: 'Virtual Staging',
     action: 'Começar',
   })
-  assert.match(page, /<Header title=\{VIRTUAL_STAGING_PRODUCT_NAME\} \/>/)
+  assert.match(page, /<Header title=\{trialMode \? VIRTUAL_STAGING_PRODUCT_DESCRIPTOR : VIRTUAL_STAGING_PRODUCT_NAME\} \/>/)
   assert.doesNotMatch(read('frontend/src/config/virtualStagingJourneys.js'), /Reimagine AI/)
 })
 
@@ -286,7 +286,7 @@ test('uses the same real Before and After mini carousel in the two separate Virt
   assert.match(page, /const VIRTUAL_STAGING_AFTER_IMAGE = '\/virtual-staging\/virtual-staging-after\.png'/)
   assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.before'\)\} \$\{VIRTUAL_STAGING_PRODUCT_NAME\}`/)
   assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.after'\)\} \$\{VIRTUAL_STAGING_PRODUCT_NAME\}`/)
-  assert.equal((page.match(/<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=/g) || []).length, 2)
+  assert.equal((page.match(/<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=/g) || []).length, 3)
   const upperPhone = page.slice(page.indexOf('function VirtualSpaceHeroVisual'), page.indexOf('function usePrefersReducedMotion'))
   const lowerPhone = page.slice(page.indexOf('function VirtualStagingModules'), page.indexOf('function Question'))
   assert.match(upperPhone, /journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{0\}/)

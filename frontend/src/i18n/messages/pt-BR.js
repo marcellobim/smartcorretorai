@@ -49,6 +49,7 @@ export default Object.freeze({
   }),
   virtualStaging: Object.freeze({
     continue: 'Continuar', yes: 'Sim', no: 'Não', edit: 'Editar', optional: 'opcional',
+    trial: Object.freeze({ notice: 'Seu teste gratuito inclui uma imagem de Virtual Staging para mobiliar um ambiente vazio.', plans: 'Ver planos e Smart Tokens' }),
     purpose: Object.freeze({ sale: 'Venda', rent: 'Locação' }),
     speech: Object.freeze({ generated: 'Criar uma fala para mim', custom: 'Escrever minha própria fala', placeholder: 'Escreva exatamente o que será falado', limit: 'Até {count} palavras. O texto será usado literalmente.' }),
     lifeScene: Object.freeze({ young: 'Jovens', young_dog: 'Jovens com cachorro', young_cat: 'Jovens com gato', adult: 'Adultos', adult_dog: 'Adultos com cachorro', adult_cat: 'Adultos com gato', senior: 'Idosos', senior_dog: 'Idosos com cachorro', senior_cat: 'Idosos com gato' }),

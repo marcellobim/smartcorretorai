@@ -5,6 +5,7 @@ import { useAuthStore } from './lib/auth-context'
 import AppLayout from './components/layout/AppLayout'
 import LandingPage from './pages/LandingPage'
 import GuestBannerEntry from './pages/GuestBannerEntry'
+import VirtualStagingTrialEntry from './pages/VirtualStagingTrialEntry'
 import GuestClaimResume from './components/guest/GuestClaimResume'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -92,6 +93,7 @@ export default function App() {
     <><SiteMetadata /><GuestClaimResume /><Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/criar-anuncio" element={<GuestBannerEntry />} />
+      <Route path="/testar-virtual-staging" element={<VirtualStagingTrialEntry />} />
       <Route path="/planos" element={<Planos />} />
       <Route path="/termos" element={<TermosDeUso />} />
       <Route path="/privacidade" element={<Privacidade />} />

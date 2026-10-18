@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { hasVideoLoginRecovery, isVideoSessionInvalid, requireVideoSession, validVideoUploads, verifyVideoUploads, videoLoginDestination, UPLOAD_RECOVERY_TTL } from '../src/lib/smart-tour-auth-recovery.js'
 import { writeProductDraft, readProductDraft } from '../src/lib/product-draft.js'
+import { preserveVirtualStagingTrialReturn, virtualStagingTrialPath } from '../src/lib/virtual-staging-trial.js'
 
 const owner = '11111111-1111-4111-8111-111111111111'
 const other = '22222222-2222-4222-8222-222222222222'
@@ -65,4 +66,11 @@ test('briefing, presenter choices and private photo references survive login for
   assert.equal(videoLoginDestination(store, other), '/dashboard')
   assert.equal(readProductDraft(store, { productKey: 'video-imobiliario', schemaVersion: 1, userId: other }), null)
   assert.equal(hasVideoLoginRecovery(store), false)
+})
+
+test('Virtual Staging trial resumes directly after authentication without storing customer data', () => {
+  const store = storage()
+  preserveVirtualStagingTrialReturn(store)
+  assert.equal(videoLoginDestination(store, owner), virtualStagingTrialPath())
+  assert.equal(videoLoginDestination(store, owner), '/dashboard')
 })

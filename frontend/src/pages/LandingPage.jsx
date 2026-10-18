@@ -329,7 +329,7 @@ function Hero() {
           <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-violet-200 sm:text-base">{t('landing.hero.distribution')}</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <Link to="/criar-anuncio" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.trial.banner')}<ArrowRight className="h-4 w-4" /></Link>
-            <Link to="/virtual-staging" onClick={() => trackCta('virtual_staging_trial_entry')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}>{t('landing.trial.virtualStaging')}<ArrowRight className="h-4 w-4" /></Link>
+            <Link to="/testar-virtual-staging" onClick={() => trackCta('virtual_staging_trial_entry')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}>{t('landing.trial.virtualStaging')}<ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>
         <div className="relative mx-auto w-full max-w-[800px] py-6 sm:px-8 lg:px-0">
@@ -521,7 +521,7 @@ function VirtualStagingSpotlight() {
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:items-end">
         <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.smartSpace.eyebrow')}</p><p className="mt-3 text-sm font-black text-slate-500">{VIRTUAL_STAGING_PRODUCT_DESCRIPTOR}</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">{t('landing.smartSpace.title')}<br /><span className="text-violet-700">{t('landing.smartSpace.titleHighlight')}</span></h2></div>
-        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">{t('landing.smartSpace.description')}</p><Link to="/virtual-staging" onClick={() => trackCta('explore_products')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.smartSpace.cta')}<ArrowRight className="h-4 w-4" /></Link></div>
+        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">{t('landing.smartSpace.description')}</p><Link to="/testar-virtual-staging" onClick={() => trackCta('virtual_staging_trial_entry')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.smartSpace.cta')}<ArrowRight className="h-4 w-4" /></Link></div>
       </div>
       <div className="relative mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_50%_25%,#312e81_0%,#11152d_34%,#060914_78%)] px-4 pb-8 pt-10 shadow-[0_40px_100px_-55px_rgba(15,23,42,.75)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-14 lg:pb-14">
         <div className="pointer-events-none absolute inset-x-1/4 top-0 h-40 rounded-full bg-violet-500/20 blur-[70px]" />
