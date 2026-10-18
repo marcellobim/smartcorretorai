@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { deploymentMode, edgeScope, VIRTUAL_STAGING_TRIAL_FUNCTIONS, VIRTUAL_STAGING_TRIAL_MIGRATION } from './edge-scope.mjs'
-import { verifyVirtualStagingTrialMigrationList } from './deploy.mjs'
+import { sameVirtualStagingTrialMigrationContent, verifyVirtualStagingTrialMigrationList } from './deploy.mjs'
 
 const deploySource = readFileSync(new URL('./deploy.mjs', import.meta.url), 'utf8')
 
@@ -46,4 +46,9 @@ test('Virtual Staging trial migration gate consumes the Supabase CLI JSON compar
     pending: ['20261017010000'],
   })
   assert.throws(() => verifyVirtualStagingTrialMigrationList(list.replace('"remote":""', '"remote":"20261016020000"')), /somente a migration autorizada/)
+})
+
+test('Virtual Staging trial migration proof permits only archive line-ending normalization', () => {
+  assert.equal(sameVirtualStagingTrialMigrationContent(Buffer.from('select 1;\n'), Buffer.from('select 1;\r\n')), true)
+  assert.equal(sameVirtualStagingTrialMigrationContent(Buffer.from('select 1;\n'), Buffer.from('select 2;\r\n')), false)
 })

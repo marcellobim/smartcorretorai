@@ -527,6 +527,10 @@ export function verifyVirtualStagingTrialMigrationList(output,allowedPending=['2
  return {applied:rows.filter(row=>row.local&&row.remote).map(row=>row.local),pending}
 }
 
+export function sameVirtualStagingTrialMigrationContent(staged,checkout){
+ return Buffer.from(staged).toString('utf8').replace(/\r\n/g,'\n')===Buffer.from(checkout).toString('utf8').replace(/\r\n/g,'\n')
+}
+
 function validateBannerLocal(current,sha){
  if(current.sha!==BANNER_RECOVERY_RELEASE.baseSha||current.id!==BANNER_RECOVERY_RELEASE.frontendDeploymentId)throw Error('DEPLOY BLOQUEADO: baseline oficial do hotfix Banner mudou')
  validateBannerWorktreeStatus(git('status','--porcelain','--untracked-files=normal'))
@@ -898,7 +902,7 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  }
  if(deployVirtualStagingTrial){
   const migrationPath=path.join(edgeStage,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/'))
-  if(!existsSync(migrationPath)||hash(readFileSync(migrationPath))!==hash(readFileSync(path.join(root,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de trial divergente no artefato isolado')
+  if(!existsSync(migrationPath)||!sameVirtualStagingTrialMigrationContent(readFileSync(migrationPath),readFileSync(path.join(root,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de trial divergente no artefato isolado')
   const beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root))
   if(JSON.stringify(beforeMigrations.pending)!==JSON.stringify(['20261017010000']))throw Error('DEPLOY BLOQUEADO: migration de trial não está isolada')
   console.log(JSON.stringify({virtualStagingTrialMigrationValidation:{applied:beforeMigrations.applied.length,pending:beforeMigrations.pending}}))
