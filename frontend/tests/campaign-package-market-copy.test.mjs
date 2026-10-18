@@ -58,6 +58,20 @@ test('shared CampaignPackage fallback makes US WhatsApp and email English and re
   assert.doesNotMatch(hashtags, /#SmartCorretorAI/i)
 })
 
+test('shared CampaignPackage carries localized Banner highlights into every US fallback channel', () => {
+  const campaign = buildCampaignPackage({
+    ...usBanner,
+    highlights: ['Near shopping', 'Near parks', 'Easy access to major routes', 'Full leisure amenities', 'Financing available'],
+  })
+  const whatsapp = campaign.modules.find(module => module.id === 'whatsapp')?.text || ''
+  const email = campaign.modules.find(module => module.id === 'email')?.fields?.map(field => field.text).join('\n') || ''
+  const combined = `${whatsapp}\n${email}\n${JSON.stringify(campaign.googleAds || {})}`
+
+  assert.match(combined, /Near shopping/)
+  assert.match(combined, /Easy access to major routes/)
+  assert.doesNotMatch(combined, /Comércio próximo|Parque próximo|Fácil acesso às principais vias|Lazer completo|Aceita financiamento/i)
+})
+
 test('US shared Google Ads copy stays in English and uses confirmed property facts only', () => {
   const googleAds = buildGoogleAdsDelivery({
     purpose: 'sale', propertyType: 'us_condo', district: 'Downtown', city: 'Tampa', state: 'FL',

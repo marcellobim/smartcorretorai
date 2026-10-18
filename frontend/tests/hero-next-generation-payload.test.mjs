@@ -102,6 +102,35 @@ test('permits an absent optional US ZIP without inventing a value in the interce
   assert.doesNotMatch(JSON.stringify(sent[0].body), /00000|33139/)
 })
 
+test('US Banner sends every valid reference photo and resolves controlled highlights before campaign delivery', () => {
+  const images = Array.from({ length: 4 }, (_, index) => ({
+    name: `property-${index + 1}.jpg`, contentType: 'image/jpeg', data: `data:image/jpeg;base64,reference-${index + 1}`,
+  }))
+  const highlights = [
+    'Comércio próximo', 'Parque próximo', 'Fácil acesso às principais vias', 'Lazer completo',
+    'Aceita financiamento', 'Entrada facilitada', 'Condições especiais', 'Documentação em ordem', 'Unidades limitadas',
+  ]
+  const payload = buildHeroNextGenerationRequest({
+    ...base,
+    market: 'US',
+    destination: square,
+    uploadedImages: images,
+    answers: { ...base.answers, differentials: highlights },
+  })
+
+  assert.deepEqual(payload.inline_images.map((image) => image.name), images.map((image) => image.name))
+  assert.match(payload.human_prompt, /Use all 4 supplied property photos as required visual reference/)
+  assert.match(payload.human_prompt, /do not silently discard a valid reference photo/i)
+  assert.deepEqual(payload.highlights, [
+    'Near shopping', 'Near parks', 'Easy access to major routes', 'Full leisure amenities',
+    'Financing available', 'Flexible down payment options', 'Special terms available', 'Clear documentation', 'Limited availability',
+  ])
+
+  const delivery = JSON.stringify(payload.publication_options)
+  assert.match(delivery, /Near shopping|Near parks/)
+  assert.doesNotMatch(delivery, /Comércio próximo|Parque próximo|Fácil acesso às principais vias|Lazer completo|Aceita financiamento|Entrada facilitada|Condições especiais|Documentação em ordem|Unidades limitadas|#ComercioProximo/i)
+})
+
 test('the intercepted handler receives only visible US commercial data', async () => {
   const payload = buildHeroNextGenerationRequest({
     ...base,

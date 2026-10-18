@@ -49,6 +49,7 @@ import {
   writeHeroNextRecovery,
 } from '../lib/hero-next-recovery'
 import { buildPublicationGoogleAds, buildPublicationPackage, formatAreaForDisplay, formatCurrencyForDisplay, normalizeContactPhoneForDisplay } from '../../../core/copy-engine'
+import { getBannerHighlightId, localizeBannerHighlight } from '../../../core/banner-highlight-catalog'
 import { buildOfficialHashtags } from '../../../supabase/functions/_shared/official-hashtags.ts'
 
 const GOALS = [
@@ -822,7 +823,7 @@ function buildHeroNextCopyInput(goal, answers, valueCondition, market = 'BR') {
     stage: answers.stage || '',
     city: answers.city || '',
     district: answers.neighborhood || answers.neighborhoods || '',
-    features,
+    features: localizeHeroNextSystemList(features, market),
     bedrooms: answers.bedrooms || '',
     suites: answers.suites || '',
     parking: answers.parking || '',
@@ -1025,6 +1026,7 @@ const localizeHeroNextSystemValue = (value, market = 'BR') => {
   if (!text || market !== 'US') return text
   const normalized = normalizeComparable(text)
   if (HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES.has(normalized)) return ''
+  if (getBannerHighlightId(text)) return localizeBannerHighlight(text, market)
   return HERO_NEXT_US_SYSTEM_VALUES[normalized] || text
 }
 
@@ -1620,6 +1622,13 @@ const buildFormatSpecificPrompt = (basePrompt, destination, imageCount = 0, crea
       'All generated text in the final asset must be natural US English only.',
       'Do not use Portuguese, Brazilian real-estate terminology, Brazilian currency, or Brazilian commercial programs.',
       'Use bedrooms, bathrooms, parking spaces, square feet, and USD when those facts are shown.',
+      '',
+      'IMAGE REFERENCE REQUIREMENT:',
+      imageCount > 1
+        ? `Use all ${imageCount} supplied property photos as required visual reference. Select a primary image and use the other photos as supporting property context whenever the composition permits; do not silently discard a valid reference photo.`
+        : imageCount === 1
+          ? 'Use the supplied property photo as the required visual reference.'
+          : 'No property photo was supplied; do not invent specific property facts.',
       'Create one final asset only. Do not create a collage, mockup, presentation board, or multiple formats in one image.',
     ].filter(Boolean).join('\n')
   }
@@ -3087,7 +3096,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       suites: answers.suites,
       parking: answers.parking,
       area: answers.area,
-      highlights: isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials,
+      highlights: localizeHeroNextSystemList(isAnyCaptureGoal ? answers.businessDifferentials : answers.differentials, market),
       contactAuthorized: answers.contactPhoneChoice === 'Sim, quero divulgar' && Boolean(profilePhone),
       phone: answers.contactPhoneChoice === 'Sim, quero divulgar' ? profilePhone : '',
       cta: localizeHeroNextSystemValue(answers.cta, market),
