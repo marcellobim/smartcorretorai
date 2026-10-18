@@ -74,12 +74,12 @@ export default function Planos() {
   const rechargePackages = smartTokenRechargePackagesForMarket(market)
   const copy = isUS ? {
     back: 'Back', heading: 'Choose your plan', hero: 'All plans include full platform access. Choose the creation capacity that fits your business.', monthly: 'Monthly',
-    capacity: 'Approximate monthly capacity:', videos: 'Real Estate Videos', banners: 'Real Estate Banners', mix: 'Mix products however you want.', examples: 'Examples only — use your Smart Tokens across SNETIA.', currentPlan: 'Current plan',
+    capacity: 'Approximate monthly capacity:', videos: 'Real Estate Videos', or: 'OR', banners: 'Real Estate Banners', mix: 'Mix products however you want.', examples: 'Examples only — use your Smart Tokens across SNETIA.', currentPlan: 'Current plan',
     pageEyebrow: 'Plans / Smart Tokens', perMonth: '/month', launchOffer: 'Launch offer', couponPrefix: 'Use the code', couponSuffix: 'at checkout and get 15% off your first 3 months.', validFor: 'Valid for 30 days',
     rechargeTitle: 'Need more capacity?', rechargeDescription: 'Add Smart Tokens anytime without changing your plan.', addTokens: 'Add Smart Tokens', faqRules: 'FAQ / Rules', contact: 'Questions?', wait: 'Please wait…', checkoutError: 'We could not start checkout. Please try again.',
   } : {
     back: 'Voltar', heading: 'Escolha seu plano', hero: 'Todos os planos incluem acesso completo à plataforma. Escolha a capacidade de criação ideal para o seu negócio.', monthly: 'Mensal',
-    capacity: 'Capacidade mensal aproximada:', videos: 'Vídeos Imobiliários', banners: 'Banners Imobiliários', mix: 'Combine os produtos como quiser.', examples: 'Apenas exemplos — use seus Smart Tokens em toda a SNETIA.', currentPlan: 'Plano atual',
+    capacity: 'Capacidade mensal aproximada:', videos: 'Vídeos Imobiliários', or: 'OU', banners: 'Banners Imobiliários', mix: 'Combine os produtos como quiser.', examples: 'Apenas exemplos — use seus Smart Tokens em toda a SNETIA.', currentPlan: 'Plano atual',
     pageEyebrow: 'Planos / Smart Tokens', perMonth: '/mês', launchOffer: 'Oferta de lançamento', couponPrefix: 'Use o código', couponSuffix: 'no checkout e ganhe 15% de desconto nos 3 primeiros meses.', validFor: 'Validade: 30 dias',
     rechargeTitle: 'Precisa de mais capacidade?', rechargeDescription: 'Adicione Smart Tokens quando quiser sem mudar seu plano.', addTokens: 'Adicionar Smart Tokens', faqRules: 'FAQ / Regras', contact: 'Dúvidas?', wait: 'Aguarde...', checkoutError: 'Não foi possível iniciar o checkout. Tente novamente.',
   }
@@ -240,6 +240,7 @@ export default function Planos() {
                     <p className="mt-4 text-xs font-black uppercase tracking-wide text-gray-500">{copy.capacity}</p>
                     <ul className="mt-3 space-y-2 text-sm font-semibold text-gray-600">
                       <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-500" />~{plano.capacity.videos} {copy.videos}</li>
+                      <li aria-hidden="true" className="flex items-center gap-2 py-0.5"><span className="h-px flex-1 bg-gray-200" /><span className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-black tracking-[0.14em] text-gray-500">{copy.or}</span><span className="h-px flex-1 bg-gray-200" /></li>
                       <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-500" />~{plano.capacity.banners} {copy.banners}</li>
                     </ul>
                     <p className="mt-4 text-xs font-bold text-gray-600">{copy.mix}</p>

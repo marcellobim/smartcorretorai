@@ -1830,6 +1830,17 @@ export default function HeroNext({ guestMode = false } = {}) {
   const { locale, market, t } = useLocale()
   const navigate = useNavigate()
   const b = (key) => t(`banner.ui.${key}`)
+  const guest = (key) => t(`banner.guest.${key}`)
+  const guestErrorMessage = (code) => {
+    const key = {
+      promotion_used: 'promotionUsed',
+      promotion_capacity: 'promotionCapacity',
+      guest_processing: 'processing',
+      guest_generation_failed: 'generationFailed',
+      guest_still_processing: 'stillCreating',
+    }[code] || 'genericError'
+    return guest(key)
+  }
   const conversationControls = getConversationControls(market)
   const optionLabels = t('banner.optionLabels')
   const optionLabel = (value) => (
@@ -1994,11 +2005,11 @@ export default function HeroNext({ guestMode = false } = {}) {
         economicRequestIdRef.current=null
         setGuestConsumed(false);setPhase('images')
       } else if(['processing','dispatching','unknown'].includes(result.status)) {
-        setGenerationError('Seu anúncio ainda está sendo verificado. Aguarde para evitar uma criação duplicada.')
+        setGenerationError(guest('processing'))
       }
     }).catch(()=>{})
     return()=>{active=false}
-  },[guestMode])
+  },[guestMode, locale])
   const expandedPreviewCloseRef = useRef(null)
   const expandedPreviewTriggerRef = useRef(null)
   const reachedStep = phase === 'goal'
@@ -2716,14 +2727,18 @@ export default function HeroNext({ guestMode = false } = {}) {
       let result=await guestBannerRequest('generate',{clientRequestId:economicContext.clientRequestId,banner:body})
       for(let attempt=0;attempt<150 && result.status!=='completed';attempt++) {
         if(['failed','unknown','cancelled'].includes(result.status)){
-          const failure=Error(result.status==='unknown' ? 'Seu anúncio ainda está sendo verificado. Aguarde para evitar uma criação duplicada.' : 'Não foi possível concluir seu anúncio. Seu teste grátis continua disponível.')
+          const failure=Error(result.status==='unknown' ? guest('processing') : guest('generationFailed'))
           failure.code=result.status==='failed' || result.status==='cancelled' ? 'guest_generation_failed' : 'guest_processing'
           throw failure
         }
         await wait(4000)
         result=await guestBannerRequest('status')
       }
-      if(result.status!=='completed')throw Error('Seu anúncio ainda está sendo criado. Volte em instantes.')
+      if(result.status!=='completed') {
+        const failure = Error(guest('stillCreating'))
+        failure.code = 'guest_still_processing'
+        throw failure
+      }
       return {data:{success:true,status:'completed',generation_id:result.requestId,image_url:result.imageUrl,texts:result.texts}}
     } : (options) => supabase.functions.invoke('gerar-hero-ia',options)
     const { data, error } = await invokeHeroNextGenerationStart(invokeGeneration, generationPayload)
@@ -2776,7 +2791,7 @@ export default function HeroNext({ guestMode = false } = {}) {
       // Guest uses only the promotional backend, never authenticated ST routines.
     if (guestMode) {
       if(guestBusyRef.current || !canGenerate)return
-      if(guestConsumed){setGenerationError('Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.');return}
+      if(guestConsumed){setGenerationError(guest('promotionUsed'));return}
       guestBusyRef.current=true;setGenerationLoading(true);setGenerationError('');setPhase('processing')
       const clientRequestId=economicRequestIdRef.current || crypto.randomUUID()
       economicRequestIdRef.current=clientRequestId
@@ -2788,7 +2803,7 @@ export default function HeroNext({ guestMode = false } = {}) {
           if(error.code==='promotion_used'){setGuestConsumed(true);requireGuestAccount()}
           if(['preprovider_cancelled','guest_generation_failed'].includes(error.code))economicRequestIdRef.current=null
           setPhase('images')
-        setGenerationError(error.message || 'Não foi possível concluir seu anúncio.')
+        setGenerationError(guestErrorMessage(error?.code))
       } finally {guestBusyRef.current=false;setGenerationLoading(false)}
       return
     }
@@ -3111,7 +3126,7 @@ export default function HeroNext({ guestMode = false } = {}) {
           >
             <p className="text-base font-black text-slate-950">{b('phoneYes')}</p>
             <p className="mt-2 text-sm font-semibold text-slate-600">
-              {profilePhone || (guestMode ? 'Informe o telefone que deseja exibir no anúncio.' : 'Cadastre um telefone no Cadastro Profissional para habilitar esta opção.')}
+              {profilePhone || (guestMode ? guest('phonePrompt') : 'Cadastre um telefone no Cadastro Profissional para habilitar esta opção.')}
             </p>
           </button>
           <button
@@ -3975,7 +3990,7 @@ export default function HeroNext({ guestMode = false } = {}) {
               </ProductButton>
               <ProductButton type="button" onClick={handleGenerate} disabled={!canGenerate || (guestMode && guestConsumed)} loading={generationLoading}>
                 <Wand2 className="h-4 w-4" />
-                {guestMode ? (generationLoading ? 'Criando anúncio...' : 'Criar anúncio') : generationLoading
+                {guestMode ? (generationLoading ? guest('creating') : guest('create')) : generationLoading
                    ? `${isUSMarket ? 'Generating' : 'Gerando'} ${formatPieceCount(totalPieceCount, market)}...`
                   : `${marketText.generate} ${formatPieceCount(totalPieceCount || 1, market)} ${marketText.campaign}`}
               </ProductButton>
@@ -4360,9 +4375,9 @@ export default function HeroNext({ guestMode = false } = {}) {
       </main>
       {guestMode && guestSignupGate && <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/70 p-4">
         <section role="dialog" aria-modal="true" aria-labelledby="guest-signup-title" className="w-full max-w-md rounded-2xl bg-white p-6 text-slate-900">
-          <h2 id="guest-signup-title" className="text-xl font-bold">{generationResult ? 'Seu anúncio está pronto.' : 'Continue criando com sua conta'}</h2>
-          <p className="mt-3">{generationResult ? 'Crie sua conta para baixar ou publicar.' : 'Seu teste grátis já foi utilizado. Crie sua conta para continuar criando.'}</p>
-          <p className="mt-3 text-sm">Ao criar sua conta, você recebe 200 Smart Tokens para continuar criando no {BRAND.name}.</p>
+          <h2 id="guest-signup-title" className="text-xl font-bold">{generationResult ? guest('signupReadyTitle') : guest('signupContinueTitle')}</h2>
+          <p className="mt-3">{generationResult ? guest('signupReadyDescription') : guest('signupUsedDescription')}</p>
+          <p className="mt-3 text-sm">{guest('signupTokens').replace('{brand}', BRAND.name)}</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link to="/cadastro" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl bg-violet-600 px-4 py-3 font-bold text-white">{b('createAccount')}</Link>
             <Link to="/login" onClick={()=>localStorage.setItem(GUEST_CLAIM_PENDING,'1')} className="rounded-xl border px-4 py-3 font-bold">{b('signIn')}</Link>

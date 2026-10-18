@@ -170,7 +170,8 @@ test('US pricing uses distinct fixed USD keys and keeps the same Smart Token gra
 test('plan cards show only concise approximate monthly capacity examples', () => {
   for (const value of ['capacity: { videos: 19, banners: 84 }', 'capacity: { videos: 33, banners: 144 }', 'capacity: { videos: 81, banners: 351 }']) assert.ok(planos.includes(value), value)
   assert.match(planos, /~\{plano\.capacity\.videos\} \{copy\.videos\}/)
+  assert.match(planos, /\{copy\.or\}/)
   assert.match(planos, /~\{plano\.capacity\.banners\} \{copy\.banners\}/)
-  for (const value of ['Approximate monthly capacity:', 'Capacidade mensal aproximada:', 'Mix products however you want.', 'Combine os produtos como quiser.', 'Examples only — use your Smart Tokens across SNETIA.', 'Apenas exemplos — use seus Smart Tokens em toda a SNETIA.']) assert.ok(planos.includes(value), value)
+  for (const value of ["or: 'OR'", "or: 'OU'", 'Approximate monthly capacity:', 'Capacidade mensal aproximada:', 'Mix products however you want.', 'Combine os produtos como quiser.', 'Examples only — use your Smart Tokens across SNETIA.', 'Apenas exemplos — use seus Smart Tokens em toda a SNETIA.']) assert.ok(planos.includes(value), value)
   assert.doesNotMatch(planos, /Cycle capacity|Starting creation capacity|More freedom to create regularly|Expanded creation volume|Ad Carousel|Text Campaign/)
 })

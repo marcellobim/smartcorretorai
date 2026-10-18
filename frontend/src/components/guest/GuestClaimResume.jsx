@@ -2,9 +2,11 @@ import {useEffect,useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {useAuthStore} from '../../lib/auth-context'
 import {guestBannerRequest,guestResultForBanner,GUEST_CLAIM_PENDING} from '../../lib/guest-banner-client'
+import {useLocale} from '../../i18n/useLocale'
 
 export default function GuestClaimResume(){
  const {user,loading,onboardingState}=useAuthStore()
+ const {t}=useLocale()
  const [retry,setRetry]=useState(0)
  const [failed,setFailed]=useState(false)
  const navigate=useNavigate()
@@ -22,7 +24,7 @@ export default function GuestClaimResume(){
  },[user?.id,loading,onboardingState,retry,navigate])
  if(!failed)return null
  return <aside role="alert" className="fixed bottom-4 right-4 z-[150] max-w-sm rounded-xl bg-white p-4 shadow-xl">
-   <p>Seu anúncio continua salvo. Não foi possível recuperá-lo agora.</p>
-   <button type="button" onClick={()=>{setFailed(false);setRetry(n=>n+1)}} className="mt-2 font-bold underline">Recuperar anúncio</button>
+   <p>{t('banner.guest.claimRecoveryError')}</p>
+   <button type="button" onClick={()=>{setFailed(false);setRetry(n=>n+1)}} className="mt-2 font-bold underline">{t('banner.guest.recoverBanner')}</button>
  </aside>
 }

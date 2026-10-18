@@ -46,9 +46,15 @@ export function networkSignal(headers, env, now = Date.now()) {
 }
 export function validOrigin(headers, env) {
   try {
-    const expected = new URL(env.GUEST_APP_ORIGIN || 'https://www.smartcorretorai.com')
-    return expected.protocol === 'https:' && headers.origin === expected.origin &&
-      headers.host === expected.host && (!headers['sec-fetch-site'] || headers['sec-fetch-site'] === 'same-origin')
+    // The guest promotion is intentionally same-origin only. Keep the
+    // deployment-configured legacy origin, while accepting the two official
+    // SNETIA production hosts during the brand migration. Do not infer an
+    // origin from the request Host header: that would weaken this boundary.
+    const allowedOrigins = new Set(['https://snetia.com', 'https://www.snetia.com'])
+    if (env.GUEST_APP_ORIGIN) allowedOrigins.add(new URL(env.GUEST_APP_ORIGIN).origin)
+    const origin = new URL(headers.origin)
+    return origin.protocol === 'https:' && allowedOrigins.has(origin.origin) && headers.host === origin.host &&
+      (!headers['sec-fetch-site'] || headers['sec-fetch-site'] === 'same-origin')
   } catch { return false }
 }
 export function validateBody(body) {
