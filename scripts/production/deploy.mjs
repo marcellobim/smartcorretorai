@@ -498,6 +498,26 @@ function tiktokContentPostingVersionActive(){return tiktokContentPostingVersion(
 function bannerVersion(expected=null){return bannerFunctionVersion(functionsList(),expected)}
 function isAncestor(ancestor,descendant){return spawnSync('git',['merge-base','--is-ancestor',ancestor,descendant],{cwd:root}).status===0}
 
+export function verifyVirtualStagingTrialMigrationList(output,allowedPending=['20261017010000']){
+ if(!Array.isArray(allowedPending)||allowedPending.some(version=>!/^\d+$/.test(String(version))))throw Error('DEPLOY BLOQUEADO: lista de migrations autorizadas inválida')
+ const rows=[]
+ for(const line of String(output||'').split(/\r?\n/)){
+  const match=line.match(/^\s*`?([^`|]*)`?\s*\|\s*`?([^`|]*)`?\s*\|/)
+  if(!match)continue
+  const local=match[1].trim(),remote=match[2].trim()
+  if(local==='Local'||/^[-]+$/.test(local))continue
+  rows.push({local,remote})
+ }
+ if(!rows.length)throw Error('DEPLOY BLOQUEADO: não foi possível comparar migrations local × remoto')
+ const remoteOnly=rows.filter(row=>!row.local&&row.remote)
+ const pending=rows.filter(row=>row.local&&!row.remote).map(row=>row.local)
+ const divergent=rows.filter(row=>row.local&&row.remote&&row.local!==row.remote)
+ if(remoteOnly.length||divergent.length||JSON.stringify(pending)!==JSON.stringify(allowedPending)){
+  throw Error('DEPLOY BLOQUEADO: somente a migration autorizada pode estar pendente')
+ }
+ return {applied:rows.filter(row=>row.local&&row.remote).map(row=>row.local),pending}
+}
+
 function validateBannerLocal(current,sha){
  if(current.sha!==BANNER_RECOVERY_RELEASE.baseSha||current.id!==BANNER_RECOVERY_RELEASE.frontendDeploymentId)throw Error('DEPLOY BLOQUEADO: baseline oficial do hotfix Banner mudou')
  validateBannerWorktreeStatus(git('status','--porcelain','--untracked-files=normal'))
@@ -855,7 +875,7 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  // gerar-hero-ia shares the Banner publication fallback with the campaign
  // release. Include its tracked non-Supabase runtime closure when this
  // narrowly-scoped release deploys that function from the isolated archive.
- const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:deployCampaignLocalization?['supabase/functions','supabase/config.toml','core/copy-engine/index.ts','server/guest-banner/promotion.mjs','server/guest-banner/result.mjs']:deployVirtualStagingTrial?['supabase/functions','supabase/config.toml',VIRTUAL_STAGING_TRIAL_MIGRATION]:['supabase/functions','supabase/config.toml']
+ const edgeArchivePaths=deployBannerRecovery?[...bannerRuntimeClosure,'supabase/config.toml']:deployCampaignLocalization?['supabase/functions','supabase/config.toml','core/copy-engine/index.ts','server/guest-banner/promotion.mjs','server/guest-banner/result.mjs']:deployVirtualStagingTrial?['supabase/functions','supabase/migrations','supabase/config.toml']:['supabase/functions','supabase/config.toml']
  git('-c','core.autocrlf=false','archive','--format=zip','--output='+edgeZip,sha,...edgeArchivePaths)
  if(deployBannerRecovery)validateBannerConfigArtifact(readZipEntryBytes(edgeZip,bannerConfigPath),bannerConfigBlob,'ZIP Edge')
  if(process.platform==='win32')run(process.env.POWERSHELL_CLI||'pwsh',['-NoProfile','-File',path.join(root,'scripts/production/extract-archive.ps1'),'-ArchivePath',edgeZip,'-DestinationPath',edgeStage])
@@ -870,7 +890,11 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  if(deployVirtualStagingTrial){
   const migrationPath=path.join(edgeStage,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/'))
   if(!existsSync(migrationPath)||hash(readFileSync(migrationPath))!==hash(readFileSync(path.join(root,...VIRTUAL_STAGING_TRIAL_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de trial divergente no artefato isolado')
+  const beforeMigrations=verifyVirtualStagingTrialMigrationList(run(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root))
+  if(JSON.stringify(beforeMigrations.pending)!==JSON.stringify(['20261017010000']))throw Error('DEPLOY BLOQUEADO: migration de trial não está isolada')
   run(edgeCli,['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root,true)
+  const afterMigrations=verifyVirtualStagingTrialMigrationList(run(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root),[])
+  if(afterMigrations.pending.length)throw Error('DEPLOY BLOQUEADO: migration pendente após publicação do trial')
   const afterMigration=await official()
   if(afterMigration.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a migration do trial')
  }
