@@ -1,98 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
-import { SMART_TOUR_EXAMPLES } from '../src/config/smartTour.js'
+import { readFileSync } from 'node:fs'
 
-const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const page = readFileSync(path.join(frontendRoot, 'src/pages/SmartTourAI.jsx'), 'utf8')
+const page = readFileSync(new URL('../src/pages/SmartTourAI.jsx', import.meta.url), 'utf8')
 
-test('centralizes the five approved Smart Tour families in order', () => {
-  assert.deepEqual(SMART_TOUR_EXAMPLES.map(example => example.id), [
-    'animate-images',
-    'campaign-video',
-    'narrated-video',
-    'virtual-agent',
-    'short-videos',
-  ])
-  assert.deepEqual(SMART_TOUR_EXAMPLES.map(example => example.title), [
-    'Animar Imagens',
-    'Vídeo para Campanha',
-    'Vídeo Narrado',
-    'Corretor Virtual',
-    'Short Videos',
-  ])
-  for (const example of SMART_TOUR_EXAMPLES) {
-    assert.equal(typeof example.title, 'string')
-    assert.equal(typeof example.description, 'string')
-    assert.match(example.video, /^\/demos-videos\/.+\.mp4(?:\.mp4)?$/)
-    assert.equal(existsSync(path.join(frontendRoot, 'public', example.video)), true)
-    for (const field of ['hasNarration', 'hasTexts', 'hasPresenter', 'hasFurniture']) {
-      assert.equal(typeof example[field], 'boolean')
-    }
-    assert.equal(example.placeholder, false)
-  }
-})
-
-test('keeps showcase playback silent and inline while enabling modal controls', () => {
-  assert.match(page, /autoPlay[\s\S]*?muted[\s\S]*?loop[\s\S]*?playsInline[\s\S]*?controls=\{false\}/)
-  assert.match(page, /role="dialog"/)
-  assert.match(page, /event\.key === 'Escape'/)
-  assert.match(page, /Demonstração anterior/)
-  assert.match(page, /Próxima demonstração/)
-  assert.match(page, /controlsList="nodownload noremoteplayback"/)
-  assert.match(page, /Ver exemplo/)
-  assert.match(page, /event\.target === event\.currentTarget/)
-  assert.match(page, /disablePictureInPicture/)
-  assert.match(page, /onContextMenu=\{event => event\.preventDefault\(\)\}/)
-  assert.doesNotMatch(page, /target="_blank"/)
-})
-
-test('uses responsive Design System cards without page-wide horizontal overflow', () => {
-  assert.match(page, /mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5/)
-  assert.match(page, /<ProductCard as="article"[\s\S]*className="flex min-w-0 flex-col p-4"/)
-  assert.match(page, /className="smart-phone-media absolute inset-0 bg-black"/)
-  assert.match(page, /className="smart-presentation-media bg-black"/)
-  assert.match(page, /aspect-\[9\/16\]/)
-  assert.doesNotMatch(page, /overflow-x-auto/)
-})
-
-test('uses the approved commercial-video communication and guide', () => {
-  for (const text of [
-    'Transforme as fotos dos seus imóveis em comerciais profissionais.',
-    'Gere vídeos prontos para anúncios, redes sociais e atendimento. Escolha apenas o resultado que deseja. O SmartCorretorAI faz o restante.',
-    'Escolha o resultado que você deseja',
-    'Como criar cada tipo de vídeo',
-    'Passe o mouse ou toque em uma opção para ver como ela foi configurada.',
-  ]) assert.ok(page.includes(text))
-  assert.doesNotMatch(page, />Smart Tour AI</)
-  assert.doesNotMatch(page, /Quatro formas de apresentar seu imóvel/)
-})
-
-test('uses the approved visible copy for the original four options without changing their technical configuration', () => {
-  for (const text of [
-    "title: 'Fotos em Movimento'",
-    'Transforme suas fotos em uma apresentação dinâmica, com movimentos suaves e novos ângulos, preservando o imóvel como protagonista.',
-    "title: 'Legendas na Tela'",
-    'Apresente seu imóvel com legendas sincronizadas, música de fundo e destaque para as principais informações.',
-    "title: 'Narração Profissional'",
-    'Apresente seu imóvel com uma narração natural e profissional, acompanhada das principais informações na tela.',
-    "title: 'Corretor Virtual IA'",
-    'Um corretor virtual apresenta o imóvel de forma envolvente, valoriza cada ambiente e desperta o interesse do cliente para entrar em contato.',
-  ]) assert.ok(page.includes(text))
-  assert.equal(SMART_TOUR_EXAMPLES[0].title, 'Animar Imagens')
-  assert.equal(SMART_TOUR_EXAMPLES[0].video, '/demos-videos/animar-imagens.mp4')
-})
-
-test('keeps the guide contextual and teaches only the four generation settings for each module', () => {
-  assert.match(page, /role="tooltip"/)
-  assert.match(page, /onMouseEnter=\{\(\) => setHoveredGuideId/)
-  assert.match(page, /onClick=\{\(\) => setActiveGuideId/)
-  assert.match(page, /\['Apresentador', example\.presenter\]/)
-  assert.match(page, /\['Narração', example\.narration\]/)
-  assert.match(page, /\['Textos', example\.texts\]/)
-  assert.match(page, /\['CTA', example\.cta\]/)
-  assert.match(page, /texts: example\.id === 'virtual-agent' \? true : example\.hasTexts/)
-  assert.match(page, /cta: example\.id !== 'animate-images'/)
+test('Real Estate Video preserves the photo-first guided conversation and final review', () => {
+  assert.match(page, /activeInputFlow.*\|\| 'images'/)
+  assert.match(page, /<GuidedConversation/)
+  assert.match(page, /review=\{question\[0\] === 'review'\}/)
+  assert.match(page, /onEdit=\{editConversationAnswer\}/)
 })

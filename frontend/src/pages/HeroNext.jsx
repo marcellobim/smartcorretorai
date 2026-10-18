@@ -18,7 +18,7 @@ import Header from '../components/layout/Header'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildCampaignPackage } from '../components/campaign/buildCampaignPackage'
-import { ProductButton, ProductCard, SMART_UI } from '../components/design-system'
+import { ProductButton, ProductCard, ProductHero, SMART_UI } from '../components/design-system'
 import { ConversationAssistantBubble, ConversationHeader, ConversationUserBubble, ConversationQuestionCard } from '../components/conversation/ConversationPrimitives'
 import { SmartLocationSelect, SmartLocationTextInput } from '../components/location/SmartCarouselCitySelect'
 import { useProductDraft } from '../hooks/useProductDraft'
@@ -1863,6 +1863,9 @@ export default function HeroNext({ guestMode = false } = {}) {
     showRent: 'Mostrar aluguel', hideRent: 'Não mostrar aluguel', showHoa: 'Mostrar condomínio', hideHoa: 'Não mostrar condomínio', showTax: 'Mostrar IPTU', hideTax: 'Não mostrar IPTU', notApplicable: 'Não se aplica',
     rentPlaceholder: 'Valor do aluguel. Ex: R$ 3.500', hoaPlaceholder: 'Valor do condomínio. Ex: R$ 780', taxPlaceholder: 'Valor do IPTU. Ex: R$ 120/mês', hoa: 'Condomínio', propertyTax: 'IPTU',
   }
+  const bannerIntro = isUSMarket
+    ? { title: 'Real Estate Banner', description: 'Turn property photos and details into ready-to-share marketing visuals.', detail: 'Choose your campaign goal and let SNETIA handle the rest.' }
+    : { title: 'Banner Imobiliário', description: 'Transforme fotos e informações do imóvel em peças prontas para divulgação.', detail: 'Escolha o objetivo da campanha e deixe a SNETIA organizar o restante.' }
   const heroNextCampaignLabels = isUSMarket
     ? {
         completedStatus: 'Completed', ctaUsed: 'CTA used', copyCta: 'Copy CTA', phone: 'Phone', copyPhone: 'Copy phone', copyText: 'Copy text', copyMessage: 'Copy message', copyDescription: 'Copy description', copySubject: 'Copy subject', copyHashtags: 'Copy hashtags',
@@ -3308,6 +3311,17 @@ export default function HeroNext({ guestMode = false } = {}) {
           <p className="mt-2 text-xs font-semibold text-slate-500">
             {market === 'US' ? 'Leaving discards this in-progress form.' : 'Ao sair, este formulário em preenchimento será descartado.'}
           </p>
+        )}
+
+        {phase === 'goal' && (
+          <ProductCard className="mt-6 overflow-hidden">
+            <ProductHero
+              id="real-estate-banner-title"
+              productName={bannerIntro.title}
+              headline={bannerIntro.description}
+              description={bannerIntro.detail}
+            />
+          </ProductCard>
         )}
 
         {phase === 'goal' && (

@@ -22,7 +22,7 @@ import { toFileMetadata } from '../lib/product-draft'
 import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/download-file'
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
-import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
+import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
 import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
@@ -57,7 +57,7 @@ const VIRTUAL_STAGING_OPTION_KEYS = Object.freeze({ 'Pré-lançamento': 'preLaun
 const getVirtualStagingOptionLabel = (value, t) => VIRTUAL_STAGING_OPTION_KEYS[value] ? t(`virtualStaging.options.${VIRTUAL_STAGING_OPTION_KEYS[value]}`) : value
 const isLifeOrBrokerJourney = journeyId => journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
 const getJourneyPresentation = (journey, t) => {
-  if (journey.id === FURNISH_RENOVATE_JOURNEY_ID) return { ...journey, title: VIRTUAL_STAGING_PRODUCT_NAME, description: VIRTUAL_STAGING_PRODUCT_DESCRIPTOR }
+  if (journey.id === FURNISH_RENOVATE_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.virtualStaging.title'), description: t('virtualStaging.journey.virtualStaging.description') }
   if (journey.id === LIFE_IN_PROPERTY_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.life.title'), description: t('virtualStaging.journey.life.description') }
   if (journey.id === BROKER_PRESENTATION_JOURNEY_ID) return { ...journey, title: t('virtualStaging.journey.broker.title'), description: t('virtualStaging.journey.broker.description') }
   return journey
@@ -369,18 +369,17 @@ export default function VirtualStagingAI() {
   }
 
   return <>
-    <Header title={VIRTUAL_STAGING_PRODUCT_NAME} subtitle={VIRTUAL_STAGING_PRODUCT_DESCRIPTOR} />
+    <Header title={VIRTUAL_STAGING_PRODUCT_NAME} />
     <main className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
       <ProductHero
         id="virtual-space-title"
         title={VIRTUAL_STAGING_PRODUCT_NAME}
-        description={VIRTUAL_STAGING_PRODUCT_DESCRIPTOR}
         visual={<VirtualSpaceHeroVisual t={t} />}
       />
 
       <ProductCard ref={modulesRef} className="mt-8 scroll-mt-6 p-5 sm:p-7">
         <ProductSectionHeading
-          eyebrow={interpolate(t('virtualStaging.journey.selected'), { title: VIRTUAL_STAGING_PRODUCT_NAME })}
+          eyebrow={selectedJourney ? interpolate(t('virtualStaging.journey.selected'), { title: getJourneyPresentation(selectedJourney, t).title }) : t('virtualStaging.journey.chooseModule')}
           title={t('virtualStaging.journey.heading')}
           description={t('virtualStaging.journey.description')}
         />

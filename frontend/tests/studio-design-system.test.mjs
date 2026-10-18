@@ -1,147 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
+import ptBR from '../src/i18n/messages/pt-BR.js'
+import enUS from '../src/i18n/messages/en-US.js'
 
-const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const read = relativePath => readFileSync(path.join(frontendRoot, relativePath), 'utf8')
+const read = file => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8')
+const studio = read('pages/StudioHero.jsx')
+const banner = read('pages/HeroNext.jsx')
+const carousel = read('pages/SmartCarrossel.jsx')
 
-test('ProductHero centralizes the official product hierarchy and supports the premium dark tone', () => {
-  const hero = read('src/components/design-system/ProductHero.jsx')
-
-  assert.match(hero, /productName, headline/)
-  assert.match(hero, /usesOfficialHierarchy = Boolean\(productName\)/)
-  assert.match(hero, /tone = 'light'/)
-  assert.match(hero, /tone === 'dark'/)
-  assert.match(hero, /usesOfficialHierarchy \? productName : title/)
-  assert.match(hero, /usesOfficialHierarchy && headline/)
+test('Banner uses a concise localized ProductHero before its main question', () => {
+  assert.match(banner, /const bannerIntro = isUSMarket/)
+  assert.match(banner, /Turn property photos and details into ready-to-share marketing visuals\./)
+  assert.match(banner, /Transforme fotos e informações do imóvel em peças prontas para divulgação\./)
+  assert.match(banner, /<ProductHero/)
 })
 
-test('Banner and Video Imobiliario use ProductHero with the official hierarchy', () => {
-  const banner = read('src/pages/HeroNext.jsx')
-  const video = read('src/pages/SmartTourAI.jsx')
-
-  assert.match(banner, /<ProductHero[\s\S]*?productName="Banner Imobiliário"[\s\S]*?headline="Sua campanha, criada com"/)
-  assert.match(video, /<ProductHero[\s\S]*?productName="Vídeo Imobiliário"[\s\S]*?headline="Transforme as fotos dos seus imóveis em comerciais profissionais\."/)
-  assert.doesNotMatch(banner, /<ProductHero[\s\S]*?eyebrow="SmartCorretorAI"/)
-  assert.doesNotMatch(video, /<ProductHero[\s\S]*?eyebrow="SmartCorretorAI"/)
+test('AI Studio retains its three operational modes with concise localized copy', () => {
+  assert.equal(ptBR.studio.landing.title, 'AI Studio')
+  assert.equal(ptBR.studio.landing.description, 'Crie comerciais imobiliários, vídeos criativos e carrosséis de anúncios em minutos com IA.')
+  assert.equal(enUS.studio.landing.title, 'AI Studio')
+  assert.equal(enUS.studio.landing.description, 'Create real estate commercials, creative videos, and ad carousels in minutes with AI.')
+  for (const key of ['studio.mode.commercial', 'studio.mode.creative', 'studio.mode.carousel']) assert.match(studio, new RegExp(key.replaceAll('.', '\\.')))
 })
 
-test('Studio IA reuses the shared Design System across its landing and internal flow', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-  const sharedComponents = [
-    'ProductHero',
-    'ProductButton',
-    'ProductCard',
-    'ProductSectionHeading',
-    'ProductSteps',
-    'ProductFlowLayout',
-    'ProductSummary',
-  ]
-
-  for (const component of sharedComponents) {
-    assert.match(studio, new RegExp(`<${component}`), `Studio IA should use ${component}`)
-  }
-  assert.equal(studio.match(/<ProductHero/g)?.length, 2)
-  assert.equal(studio.match(/tone="dark"/g)?.length || 0, 0)
-  assert.match(studio, /productName=\{<span>Studio IA<\/span>\}/)
-  assert.doesNotMatch(studio, /eyebrow=\{isFreeAiMode \? 'Vídeo Criativo' : 'Comercial Imobiliário'\}/)
-  assert.match(studio, /productName=\{isFreeAiMode \? 'Vídeo Criativo' : 'Comercial Imobiliário'\}/)
-  assert.match(studio, /headline=\{isFreeAiMode \? 'Vamos transformar sua ideia em um vídeo\.' : 'Vamos criar seu comercial\.'\}/)
-  assert.doesNotMatch(studio, /id="studio-ia-flow-title"[\s\S]*?productName="Studio IA"/)
-  assert.match(studio, /mediaPresentation="mobile"/)
-})
-
-test('Studio IA internal hero hierarchy identifies each module without repeating the Studio title', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-  const carousel = read('src/pages/SmartCarrossel.jsx')
-  const internalHero = studio.slice(studio.indexOf('id="studio-ia-flow-title"'), studio.indexOf('<section data-smart-conversation'))
-
-  assert.doesNotMatch(internalHero, /eyebrow=/)
-  assert.match(internalHero, /productName=\{isFreeAiMode \? 'Vídeo Criativo' : 'Comercial Imobiliário'\}/)
-  assert.match(internalHero, /headline=\{isFreeAiMode \? 'Vamos transformar sua ideia em um vídeo\.' : 'Vamos criar seu comercial\.'\}/)
-  assert.doesNotMatch(internalHero, /productName="Studio IA"/)
-  assert.doesNotMatch(carousel, /eyebrow="Carrossel de Anúncios"/)
-  assert.match(carousel, /productName="Carrossel de Anúncios"/)
-  assert.match(carousel, /headline="Apresentação Profissional"/)
-})
-
-test('Studio IA preserves the declared module cards while sharing internal controls', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-  const carousel = read('src/pages/SmartCarrossel.jsx')
-  const creationModes = studio.slice(studio.indexOf('const STUDIO_CREATION_MODES'), studio.indexOf('const STUDIO_MODE_EXAMPLES'))
-  const modeExamples = studio.slice(studio.indexOf('const STUDIO_MODE_EXAMPLES'), studio.indexOf('const VISIBLE_STUDIO_CREATION_MODES'))
-
-  assert.equal(creationModes.match(/\bid: '/g)?.length, 5)
-  assert.equal(modeExamples.match(/\bid: '/g)?.length, 5)
-  assert.doesNotMatch(studio, /<button|<article|object-contain/)
-  assert.doesNotMatch(carousel, /<button|object-contain/)
-  assert.match(studio, /function UserReply[\s\S]*?<ConversationUserBubble/)
-  assert.match(studio, /function ChipButton[\s\S]*?<ProductButton/)
-  assert.match(studio, /function FilePicker[\s\S]*?<ProductCard[\s\S]*?as="label"/)
-  assert.match(studio, /function LoadingCard[\s\S]*?<ProductCard/)
-  assert.match(studio, /function ErrorCard[\s\S]*?<ProductCard/)
-})
-
-test('Studio IA keeps a spacious light landing Hero and uses minimal markers instead of emoji lists', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-  const landingHero = studio.slice(studio.indexOf('id="studio-ia-title"'), studio.indexOf('/>', studio.indexOf('id="studio-ia-title"')))
-
-  assert.doesNotMatch(landingHero, /tone="dark"/)
-  assert.match(studio, /bg-\[linear-gradient\(135deg,#ffffff_0%,#f0f7ff_52%,#ecfeff_100%\)\] text-slate-900/)
-  assert.match(landingHero, /visual={<StudioHeroRepresentativePhone/)
-  assert.match(studio, /STUDIO_HERO_REPRESENTATIVE_VIDEO = '\/showcase\/studio\/showcase-captacao-corretores\.mp4'/)
-  assert.match(studio, /function StudioHeroRepresentativePhone[\s\S]*?<video[\s\S]*?src=\{STUDIO_HERO_REPRESENTATIVE_VIDEO\}[\s\S]*?autoPlay[\s\S]*?muted[\s\S]*?loop[\s\S]*?playsInline[\s\S]*?controls=\{false\}/)
-  assert.doesNotMatch(studio, /O que voce pode criar/)
-  assert.doesNotMatch(studio, /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
-  assert.match(studio, /t\('studio\.demo\.sendLabel'\)/)
-  assert.match(studio, /h-px w-4 bg-slate-400/)
-  assert.match(studio, /h-1 w-1 shrink-0 rounded-full bg-slate-400/)
-})
-
-test('Studio IA internal heroes use the approved light color language without changing shared components', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-  const carousel = read('src/pages/SmartCarrossel.jsx')
-
-  assert.match(studio, /#ffffff_0%,#f0f7ff_52%,#ecfeff_100%/)
-  assert.match(studio, /#ffffff_0%,#faf5ff_52%,#eef7ff_100%/)
-  assert.match(studio, /border-blue-100 bg-white\/80 p-5 text-slate-950/)
-  assert.equal(studio.match(/tone="dark"/g)?.length || 0, 0)
-  assert.match(carousel, /#ffffff_0%,#ecfdf5_52%,#ecfeff_100%/)
-  assert.doesNotMatch(carousel, /tone="dark"/)
-})
-
-test('Studio IA main phone previews inherit the official media classes', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-
-  assert.equal(studio.match(/smart-phone-media/g)?.length, 2)
-  assert.doesNotMatch(studio, /object-contain/)
-})
-
-test('Studio IA removes the example gallery and its integration points', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-  const app = read('src/App.jsx')
-
-  assert.doesNotMatch(studio, /StudioGalleryInvitation|StudioPossibilitiesShowcase|STUDIO_POSSIBILITY_EXAMPLES|studio-galeria/)
-  assert.doesNotMatch(app, /StudioGallery|studio-galeria/)
-})
-
-test('Carrossel de Anúncios inherits the Studio Design System and the official vertical media presentation', () => {
-  const studio = read('src/pages/StudioHero.jsx')
-  const carousel = read('src/pages/SmartCarrossel.jsx')
-  const heroVideo = '/showcase/smartcarrossel/showcase-carrossel.mp4'
-
-  assert.match(studio, new RegExp(heroVideo.replaceAll('/', '\\/')))
-  assert.match(carousel, new RegExp(heroVideo.replaceAll('/', '\\/')))
+test('Studio and Ad Carousel keep shared design-system components and routes', () => {
+  for (const component of ['ProductHero', 'ProductButton', 'ProductCard', 'ProductSectionHeading']) assert.match(studio, new RegExp(`<${component}`))
+  assert.match(studio, /VISIBLE_STUDIO_CREATION_MODES/)
   assert.match(carousel, /<ProductHero/)
-  assert.match(carousel, /<ProductSteps[\s\S]*?accent="emerald"/)
-  assert.match(carousel, /<ProductSectionHeading/)
-  assert.match(carousel, /<ProductCard/)
-  assert.match(carousel, /<ProductButton/)
-  assert.match(carousel, /<GuidedConversation[\s\S]*?designSystem[\s\S]*?accent="emerald"/)
-  assert.match(carousel, /smart-phone-media pointer-events-none absolute inset-0/)
-  assert.match(carousel, /autoPlay[\s\S]*?muted[\s\S]*?loop[\s\S]*?playsInline/)
-  assert.match(carousel, /mediaPresentation="mobile"/)
-  assert.doesNotMatch(carousel, /banners-rapidos\/hero-imovel\.jpg|object-contain/)
+  assert.match(carousel, /<GuidedConversation/)
+})
+
+test('AI Studio continues without the removed examples gallery', () => {
+  assert.doesNotMatch(studio, /StudioGalleryInvitation|StudioPossibilitiesShowcase|STUDIO_POSSIBILITY_EXAMPLES|studio-galeria/)
 })

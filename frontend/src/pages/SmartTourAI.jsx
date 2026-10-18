@@ -629,19 +629,8 @@ export default function SmartTourAI() {
 
       {recoverableJob && <ProductCard className="mt-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black text-slate-950">{t('smartTour.status.recoveryAvailable')}</p><p className="mt-1 text-sm text-slate-600">{t('smartTour.status.recoveryReadOnly')}</p></div><ProductButton type="button" variant="secondary" onClick={() => { setStatus('generating'); setMessage(t('smartTour.status.resuming')); poll(recoverableJob.jobId); setRecoverableJob(null) }}>{t('smartTour.status.resumeTracking')}</ProductButton></ProductCard>}
 
-      <ProductCard className="mt-8 p-5 sm:p-7">
-        <ProductSectionHeading
-          eyebrow={t('smartTour.showcase.eyebrow')}
-          title={t('smartTour.showcase.title')}
-          description={t('smartTour.showcase.description')}
-        />
-        <SmartTourShowcase />
-      </ProductCard>
-
-      <SmartTourGuide />
-
       {activeInputFlow && <div id="smart-tour-creation" className="mt-10 space-y-8 scroll-mt-6">
-        <ProductSectionHeading eyebrow={isShortVideos ? t('smartTour.shortVideos') : t('smartTour.guidedCreation')} title={t('smartTour.creationTitle')} />
+        <ProductSectionHeading title={isShortVideos ? t('smartTour.shortVideos') : (market === 'US' ? 'Choose your video style' : 'Escolha o estilo do vídeo')} />
     <GuidedConversation
       market={isShortVideos ? undefined : market}
       history={conversation.history}

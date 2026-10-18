@@ -278,22 +278,7 @@ export default function Dashboard() {
       <Header title={t('dashboard.header.title')} subtitle={t('dashboard.header.subtitle')} />
 
       <main className={`${HOME_PAGE_CLASS} min-w-0`}>
-        <ProductCard className="overflow-hidden border-slate-200 bg-white p-5 shadow-[0_28px_75px_-55px_rgba(15,23,42,0.38)] sm:p-7 lg:p-9">
-          <div data-home-hero className="grid min-w-0 gap-8 lg:grid-cols-[minmax(350px,0.9fr)_minmax(480px,1.1fr)] lg:items-center">
-            <div className="max-w-xl">
-              <h1 className="text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl lg:text-[2.6rem] lg:leading-[1.08] xl:text-[2.85rem]">
-              {t('dashboard.hero.title')}
-              </h1>
-              <p className={`${SMART_UI.body} mt-4 max-w-lg`}>
-                {t('dashboard.hero.description')}
-              </p>
-            </div>
-
-            <HeroMediaShowcase />
-          </div>
-        </ProductCard>
-
-        <section className="mt-8" aria-labelledby="home-products-title">
+        <section aria-labelledby="home-products-title">
           {selectedGroup && (
             <Link to="/dashboard" className={`mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl text-sm font-bold text-primary-900 ${SMART_UI.focus}`}>
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -310,12 +295,6 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
-
-        <ProductCard data-home-benefits className="mt-8 grid overflow-hidden border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
-          {benefits(t).map((benefit, index) => (
-            <BenefitItem key={benefit.title} benefit={benefit} divided={index > 0} />
-          ))}
-        </ProductCard>
 
         <section className="mt-5" aria-labelledby="home-faq-title">
           <ProductCard as="details" onToggle={handleFaqSectionToggle} className="group/faq-section overflow-hidden border-slate-200 bg-white" data-home-faq>

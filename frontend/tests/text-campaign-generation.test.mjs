@@ -96,8 +96,11 @@ test('keeps US bathrooms and ZIP optional while excluding Brazilian commercial o
   assert.match(page, /formatTextCampaignCurrencyForMarket/)
 })
 
-test('keeps the localized multichannel hero and removes only the intermediate sidebar summary', () => {
-  assert.match(page, /visual=\{<DeliverablesPreview copy=\{copy\} locale=\{locale\} \/>\}/)
+test('keeps the concise localized multichannel hero and removes the intermediate sidebar summary', () => {
+  assert.doesNotMatch(page, /visual=\{<DeliverablesPreview copy=\{copy\} locale=\{locale\} \/>\}/)
+  assert.equal(conversationCopy.getTextCampaignUiCopy('en-US').heroHeadline, 'Get ready-to-use property marketing copy for every channel.')
+  assert.equal(conversationCopy.getTextCampaignUiCopy('pt-BR').heroHeadline, 'Receba textos prontos para divulgar seu imóvel em vários canais.')
+  assert.match(page, /cancelDraft/)
   assert.match(page, /showSummary=\{false\}/)
   assert.match(page, /questionNumber=\{questionNumber\}/)
   assert.match(page, /totalQuestions=\{TEXT_CAMPAIGN_QUESTION_ORDER\.length\}/)

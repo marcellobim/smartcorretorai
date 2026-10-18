@@ -30,8 +30,10 @@ test('US text campaign demo retains US terminology and location', () => {
   for (const copy of ['Moema', 'm²', 'Redes sociais', '#RealEstateSP']) assert.doesNotMatch(enUSLandingCatalog, new RegExp(copy))
 })
 
-test('Landing preserves the responsive desktop and mobile market controls', () => {
-  assert.match(landing, /MarketSelector compact className="hidden w-\[226px\] sm:grid"/)
+test('Landing keeps Language & Region discreet in the footer and accessible on mobile', () => {
+  assert.doesNotMatch(landing, /MarketSelector compact className="hidden w-\[226px\] sm:grid"/)
+  assert.match(landing, /<MarketSelector compact className="mt-6 max-w-xs"\s*\/>/)
+  assert.match(landing, /<MarketSelector compact className="mt-3"\s*\/>/)
   assert.match(landing, /id="landing-mobile-menu"/)
   assert.match(landing, /md:hidden/)
   assert.match(landing, /lg:grid-cols/)

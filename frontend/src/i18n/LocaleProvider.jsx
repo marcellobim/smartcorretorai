@@ -25,7 +25,15 @@ function readPreferences() {
   if (typeof window === 'undefined') return DEFAULT_LOCALE_CONFIG
 
   try {
-    const preferences = JSON.parse(window.localStorage.getItem(LOCALE_PREFERENCES_KEY) || '{}')
+    const stored = window.localStorage.getItem(LOCALE_PREFERENCES_KEY)
+    if (!stored) {
+      // A first visit can use the browser language as a non-invasive suggestion.
+      // A persisted manual choice always wins on subsequent visits.
+      const browserLocales = [window.navigator?.language, ...(window.navigator?.languages || [])].filter(Boolean)
+      const market = browserLocales.some(value => String(value).toLowerCase() === 'en-us') ? 'US' : 'BR'
+      return normalizeMarketPreferences({ market })
+    }
+    const preferences = JSON.parse(stored)
     return normalizeMarketPreferences(preferences)
   } catch {
     return DEFAULT_LOCALE_CONFIG

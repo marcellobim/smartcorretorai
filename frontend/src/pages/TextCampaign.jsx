@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import Header from '../components/layout/Header'
 import GuidedConversation from '../components/conversation/GuidedConversation'
 import SmartCarouselCitySelect, {
@@ -105,6 +106,7 @@ const emptyCommercial = () => ({
 export default function TextCampaign() {
   const { user, profile, accessToken, reloadProfile, updateUser } = useAuth()
   const { locale, market } = useLocale()
+  const navigate = useNavigate()
   const copy = getTextCampaignUiCopy(locale)
   const textDraft = useProductDraft({ productKey: 'campanha-de-textos', schemaVersion: 1, userId: user?.id })
   const restoredTextDraft = textDraft.restoredDraft || {}
@@ -298,17 +300,29 @@ export default function TextCampaign() {
     conversation.resetConversation()
   }
 
+  const cancelDraft = () => {
+    if (generationStatus === 'loading') return
+    textDraft.clear()
+    clearTextCampaignRequestId()
+    generationRequestRef.current = null
+    completedRequestRef.current = ''
+    navigate('/dashboard')
+  }
+
   return <div className="min-h-screen bg-slate-50">
-    <Header title={copy.productName} subtitle={copy.headerSubtitle} />
+    <Header title={copy.productName} />
     <main className={`${campaign ? 'mx-auto w-full max-w-[96rem] px-smart-page py-6 sm:py-8' : SMART_UI.page} min-w-0 space-y-6`}>
       {campaign ? <TextCampaignResult campaign={campaign} onNewCampaign={createNewCampaign} /> : <>
+      <div className="flex flex-wrap gap-3">
+        <ProductButton type="button" variant="secondary" onClick={() => navigate(-1)}>{locale === 'en-US' ? 'Back' : 'Voltar'}</ProductButton>
+        <ProductButton type="button" variant="ghost" disabled={generationStatus === 'loading'} onClick={cancelDraft}>{locale === 'en-US' ? 'Cancel' : 'Cancelar'}</ProductButton>
+      </div>
       <ProductCard className="overflow-hidden">
         <ProductHero
           id="text-campaign-title"
           productName={copy.productName}
           headline={copy.heroHeadline}
           description={copy.heroDescription}
-          visual={<DeliverablesPreview copy={copy} locale={locale} />}
         />
       </ProductCard>
 
