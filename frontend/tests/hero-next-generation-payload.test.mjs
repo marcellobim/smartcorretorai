@@ -60,7 +60,7 @@ test('only a trusted browser activation may enter the final generation handler',
   assert.equal(isExplicitGenerationActivation({ nativeEvent: { isTrusted: true } }), true)
 })
 
-test('localizes the controlled pre-launch status before the Banner delivery-copy fallback', () => {
+test('resolves controlled Instagram/Facebook values from the active market catalog', () => {
   const us = buildHeroNextCopyInput('sale', {
     ...base.answers,
     propertyType: 'Apartamento',
@@ -81,7 +81,15 @@ test('localizes the controlled pre-launch status before the Banner delivery-copy
     ...base,
     market: 'US',
     destination: square,
-    answers: { ...base.answers, propertyType: 'Apartamento', stage: 'Pré-lançamento' },
+    answers: {
+      ...base.answers,
+      propertyType: 'Apartamento',
+      stage: 'Pré-lançamento',
+      cta: 'Agende sua visita',
+      city: 'Beverly Hills',
+      neighborhood: 'Sunset Plaza',
+      differentials: ['Comércio próximo'],
+    },
   })
   const brPayload = buildHeroNextGenerationRequest({
     ...base,
@@ -89,10 +97,35 @@ test('localizes the controlled pre-launch status before the Banner delivery-copy
     destination: square,
     answers: { ...base.answers, propertyType: 'Apartamento', stage: 'Pré-lançamento' },
   })
+  const usRentPayload = buildHeroNextGenerationRequest({
+    ...base,
+    goal: 'rent',
+    market: 'US',
+    destination: square,
+    answers: {
+      ...base.answers,
+      propertyType: 'us_apartment',
+      stage: 'Disponível já',
+      cta: 'Fale comigo',
+      differentials: ['Parque próximo'],
+    },
+  })
 
-  assert.match(JSON.stringify(usPayload.publication_options), /Apartment \(Pre-launch\) for sale/)
-  assert.doesNotMatch(JSON.stringify(usPayload.publication_options), /Pré-lançamento/)
-  assert.match(JSON.stringify(brPayload.publication_options), /Pré-lançamento/)
+  const usDelivery = JSON.stringify(usPayload.publication_options)
+  const brDelivery = JSON.stringify(brPayload.publication_options)
+  const usRentDelivery = JSON.stringify(usRentPayload.publication_options)
+
+  assert.match(usDelivery, /Apartment \(Pre-launch\) for sale/)
+  assert.match(usDelivery, /Sunset Plaza, Beverly Hills/)
+  assert.match(usDelivery, /Schedule a showing/)
+  assert.match(usDelivery, /Near shopping/)
+  assert.doesNotMatch(usDelivery, /Pré-lançamento|À venda|Apartamento|Agende sua visita|Comércio próximo/)
+  assert.match(usRentDelivery, /Apartment \(Available now\) for rent/)
+  assert.match(usRentDelivery, /Contact us/)
+  assert.match(usRentDelivery, /Near parks/)
+  assert.doesNotMatch(usRentDelivery, /us_apartment|Disponível já|Para aluguel|Fale comigo|Parque próximo/)
+  assert.match(brDelivery, /Apartamento/)
+  assert.match(brDelivery, /Pré-lançamento/)
 })
 
 test('uses the market at submission time in both directions and keeps technical destination ids', () => {

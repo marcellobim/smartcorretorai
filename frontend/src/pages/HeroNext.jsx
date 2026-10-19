@@ -846,19 +846,10 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
   if (market !== 'US') return buildPublicationPackage(buildHeroNextCopyInput(goal, answers, valueCondition, market))
 
   const text = (value) => String(value || '').trim()
-  const normalized = (value) => normalizeComparable(value).replace(/_/g, ' ')
   const usd = (value) => text(value).replace(/R\$\s*([\d.,]+)/g, (_, amount) => {
     const number = Number(amount.replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
     return Number.isFinite(number) ? `USD $${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(number)}` : `USD $${amount}`
   })
-  const propertyTypes = {
-    apartamento: 'Apartment', apartment: 'Apartment', casa: 'House', house: 'House', sobrado: 'Townhouse',
-    townhouse: 'Townhouse', cobertura: 'Penthouse', penthouse: 'Penthouse', studio: 'Studio', garden: 'Garden apartment',
-    kitnet: 'Studio apartment', 'terreno/lote': 'Land lot', terreno: 'Land', lote: 'Land lot',
-    'sala comercial': 'Commercial suite', loja: 'Retail space', galpao: 'Warehouse', comercial: 'Commercial property',
-    'us single family home': 'Single-family home', ussinglefamilyhome: 'Single-family home', 'single family home': 'Single-family home',
-    uscondo: 'Condominium', ustownhouse: 'Townhouse', usmultifamily: 'Multi-family home', usland: 'Land',
-  }
   const numberLabel = (value, singular, plural) => {
     const current = text(value)
     if (!/^\d+\+?$/.test(current) || current === '0') return ''
@@ -869,8 +860,8 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
   const sqft = Number.isFinite(areaNumber) && areaNumber > 0
     ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber)} sqft`
     : ''
-  const localizedType = propertyTypes[normalized(answers.propertyType)] || text(answers.propertyType) || 'Property'
-  const localizedStage = localizeHeroNextSystemValue(answers.stage, 'US')
+  const localizedType = resolveHeroNextInstagramValue('propertyType', answers.propertyType, 'US') || text(answers.propertyType) || 'Property'
+  const localizedStage = resolveHeroNextInstagramValue('stage', answers.stage, 'US')
   const location = [text(answers.neighborhood || answers.neighborhoods), text(answers.city)].filter(Boolean).join(', ')
   const facts = [
     numberLabel(answers.bedrooms, 'bedroom', 'bedrooms'),
@@ -878,8 +869,8 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     numberLabel(answers.parking, 'parking space', 'parking spaces'),
     sqft,
   ].filter(Boolean)
-  const objective = goal === 'rent' ? 'for rent' : 'for sale'
-  const cta = localizeHeroNextSystemValue(answers.cta, 'US') || getHeroNextDefaultCta(goal, 'US')
+  const objective = (resolveHeroNextInstagramValue('purpose', goal, 'US') || (goal === 'rent' ? 'For Rent' : 'For Sale')).toLocaleLowerCase('en-US')
+  const cta = resolveHeroNextInstagramValue('cta', answers.cta, 'US') || getHeroNextDefaultCta(goal, 'US')
   const rawValue = text(valueCondition?.details)
   const value = usd(rawValue)
     .replace(/\bValor:\s*/gi, 'Price: ')
@@ -997,6 +988,90 @@ const HERO_NEXT_US_SYSTEM_VALUES = Object.freeze({
   'vista livre': 'Open views',
   'vista panoramica': 'Panoramic views',
 })
+
+// Instagram/Facebook uses only these structured answers to compose its
+// delivery copy. Keep their locale presentation separate from free-form user
+// fields such as city, neighborhood, and custom copy.
+const HERO_NEXT_US_INSTAGRAM_VALUES = Object.freeze({
+  purpose: Object.freeze({
+    sale: 'For Sale',
+    venda: 'For Sale',
+    'a venda': 'For Sale',
+    rent: 'For Rent',
+    rental: 'For Rent',
+    locacao: 'For Rent',
+    aluguel: 'For Rent',
+    'para aluguel': 'For Rent',
+  }),
+  propertyType: Object.freeze({
+    apartamento: 'Apartment',
+    apartment: 'Apartment',
+    studio: 'Studio',
+    'studio loft': 'Studio',
+    casa: 'House',
+    house: 'House',
+    sobrado: 'Townhouse',
+    townhouse: 'Townhouse',
+    cobertura: 'Penthouse',
+    penthouse: 'Penthouse',
+    garden: 'Garden apartment',
+    kitnet: 'Studio apartment',
+    'terreno lote': 'Land lot',
+    terreno: 'Land',
+    lote: 'Land lot',
+    'land lot': 'Land lot',
+    land: 'Land',
+    'sala comercial': 'Commercial suite',
+    loja: 'Retail space',
+    galpao: 'Warehouse',
+    comercial: 'Commercial property',
+    'commercial property': 'Commercial property',
+    'commercial suite': 'Commercial suite',
+    'retail space': 'Retail space',
+    warehouse: 'Warehouse',
+    'us single family home': 'Single-family home',
+    'single family home': 'Single-family home',
+    'us condo': 'Condominium',
+    condo: 'Condominium',
+    condominium: 'Condominium',
+    'us townhouse': 'Townhouse',
+    'us multi family': 'Multi-family home',
+    'multi family': 'Multi-family home',
+    'multi family home': 'Multi-family home',
+    'us apartment': 'Apartment',
+    'us studio': 'Studio',
+    'us land lot': 'Land lot',
+    'us commercial': 'Commercial property',
+  }),
+  stage: Object.freeze({
+    'pre lancamento': 'Pre-launch',
+    lancamento: 'New launch',
+    'em obras': 'Under construction',
+    'pronto para morar': 'Move-in ready',
+    'disponivel ja': 'Available now',
+    vago: 'Vacant',
+  }),
+  cta: Object.freeze({
+    'fale comigo': 'Contact us',
+    'fale com o corretor': 'Contact us',
+    'solicitar contato': 'Request contact',
+    'agende sua visita': 'Schedule a showing',
+    'saiba mais': 'Learn more',
+    'entre em contato agora': 'Contact us now',
+    'conheca as condicoes': 'Explore the terms',
+    'faca sua simulacao': 'Get an estimate',
+    'quero informacoes': 'Get details',
+    'chamar no whatsapp': 'Contact us',
+  }),
+})
+
+const normalizeHeroNextInstagramValue = (value) => normalizeComparable(String(value || '').replace(/[_/-]/g, ' '))
+
+const resolveHeroNextInstagramValue = (category, value, market = 'BR') => {
+  const text = String(value || '').trim()
+  if (!text || market !== 'US') return text
+  return HERO_NEXT_US_INSTAGRAM_VALUES[category]?.[normalizeHeroNextInstagramValue(text)] || text
+}
 
 const HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES = new Set([
   'minha casa minha vida',
