@@ -6,6 +6,7 @@ import path from 'node:path'
 
 let vite
 let buildHeroNextGenerationRequest
+let buildHeroNextCopyInput
 let invokeHeroNextGenerationStart
 let isExplicitGenerationActivation
 
@@ -25,7 +26,7 @@ test.before(async () => {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://project.example.test'),
     'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify('test-anon-key'),
   } })
-  ;({ buildHeroNextGenerationRequest, invokeHeroNextGenerationStart, isExplicitGenerationActivation } = await vite.ssrLoadModule('/src/pages/HeroNext.jsx'))
+  ;({ buildHeroNextGenerationRequest, buildHeroNextCopyInput, invokeHeroNextGenerationStart, isExplicitGenerationActivation } = await vite.ssrLoadModule('/src/pages/HeroNext.jsx'))
 })
 
 test.after(async () => vite?.close())
@@ -57,6 +58,41 @@ test('only a trusted browser activation may enter the final generation handler',
   assert.equal(isExplicitGenerationActivation({ nativeEvent: { isTrusted: false } }), false)
   assert.equal(isExplicitGenerationActivation({ isTrusted: true }), true)
   assert.equal(isExplicitGenerationActivation({ nativeEvent: { isTrusted: true } }), true)
+})
+
+test('localizes the controlled pre-launch status before the Banner delivery-copy fallback', () => {
+  const us = buildHeroNextCopyInput('sale', {
+    ...base.answers,
+    propertyType: 'Apartamento',
+    stage: 'Pré-lançamento',
+  }, base.valueCondition, 'US')
+  const br = buildHeroNextCopyInput('sale', {
+    ...base.answers,
+    propertyType: 'Apartamento',
+    stage: 'Pré-lançamento',
+  }, base.valueCondition, 'BR')
+
+  assert.equal(us.language, 'en-US')
+  assert.equal(us.stage, 'Pre-launch')
+  assert.equal(br.language, 'pt-BR')
+  assert.equal(br.stage, 'Pré-lançamento')
+
+  const usPayload = buildHeroNextGenerationRequest({
+    ...base,
+    market: 'US',
+    destination: square,
+    answers: { ...base.answers, propertyType: 'Apartamento', stage: 'Pré-lançamento' },
+  })
+  const brPayload = buildHeroNextGenerationRequest({
+    ...base,
+    market: 'BR',
+    destination: square,
+    answers: { ...base.answers, propertyType: 'Apartamento', stage: 'Pré-lançamento' },
+  })
+
+  assert.match(JSON.stringify(usPayload.publication_options), /Apartment \(Pre-launch\) for sale/)
+  assert.doesNotMatch(JSON.stringify(usPayload.publication_options), /Pré-lançamento/)
+  assert.match(JSON.stringify(brPayload.publication_options), /Pré-lançamento/)
 })
 
 test('uses the market at submission time in both directions and keeps technical destination ids', () => {

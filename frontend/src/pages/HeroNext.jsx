@@ -811,7 +811,7 @@ const getHeroNextDefaultCta = (goal, market = 'BR') => (
     : (isCaptureGoal(goal) ? 'Solicitar contato' : 'Fale comigo')
 )
 
-function buildHeroNextCopyInput(goal, answers, valueCondition, market = 'BR') {
+export function buildHeroNextCopyInput(goal, answers, valueCondition, market = 'BR') {
   const objectiveLabel = getHeroNextObjectiveLabel(goal)
   const features = getHeroNextCaptureFeatures(goal, answers)
 
@@ -820,7 +820,11 @@ function buildHeroNextCopyInput(goal, answers, valueCondition, market = 'BR') {
     objective: goal,
     objectiveLabel,
     propertyType: answers.propertyType || normalizeList(answers.propertyKinds)[0] || normalizeList(answers.professionalProfile)[0] || 'Imóvel',
-    stage: answers.stage || '',
+    // `stage` is a controlled catalogue value. Keep the canonical BR value in
+    // the form state, but pass its market label into every delivery-copy path.
+    // This also covers the deterministic package fallback used by the guest
+    // Banner, without touching literal user-entered fields.
+    stage: localizeHeroNextSystemValue(answers.stage || '', market),
     city: answers.city || '',
     district: answers.neighborhood || answers.neighborhoods || '',
     features: localizeHeroNextSystemList(features, market),
@@ -855,10 +859,6 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     'us single family home': 'Single-family home', ussinglefamilyhome: 'Single-family home', 'single family home': 'Single-family home',
     uscondo: 'Condominium', ustownhouse: 'Townhouse', usmultifamily: 'Multi-family home', usland: 'Land',
   }
-  const stages = {
-    'pre lancamento': 'Pre-launch', lancamento: 'New launch', 'em obras': 'Under construction',
-    'pronto para morar': 'Move-in ready', 'move in ready': 'Move-in ready',
-  }
   const numberLabel = (value, singular, plural) => {
     const current = text(value)
     if (!/^\d+\+?$/.test(current) || current === '0') return ''
@@ -870,7 +870,7 @@ function buildHeroNextCampaignCopy(goal, answers, valueCondition, market = 'BR')
     ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber)} sqft`
     : ''
   const localizedType = propertyTypes[normalized(answers.propertyType)] || text(answers.propertyType) || 'Property'
-  const localizedStage = stages[normalized(answers.stage)] || text(answers.stage)
+  const localizedStage = localizeHeroNextSystemValue(answers.stage, 'US')
   const location = [text(answers.neighborhood || answers.neighborhoods), text(answers.city)].filter(Boolean).join(', ')
   const facts = [
     numberLabel(answers.bedrooms, 'bedroom', 'bedrooms'),
@@ -1024,7 +1024,10 @@ export const filterHeroNextCatalogGroups = (groups, market = 'BR') => (
 const localizeHeroNextSystemValue = (value, market = 'BR') => {
   const text = String(value || '').trim()
   if (!text || market !== 'US') return text
-  const normalized = normalizeComparable(text)
+  // Catalogue labels may contain hyphens (for example, "Pré-lançamento").
+  // Normalize the separator before the structured US label lookup instead of
+  // replacing words in a completed campaign.
+  const normalized = normalizeComparable(text).replace(/-/g, ' ')
   if (HERO_NEXT_US_EXCLUDED_SYSTEM_VALUES.has(normalized)) return ''
   if (getBannerHighlightId(text)) return localizeBannerHighlight(text, market)
   return HERO_NEXT_US_SYSTEM_VALUES[normalized] || text
@@ -1403,12 +1406,11 @@ const buildHumanPrompt = (goal, answers, destinations, valueCondition, creativeI
       return Number.isFinite(number) ? `USD $${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(number)}` : `USD $${amount}`
     })
     const types = { apartamento: 'Apartment', casa: 'House', sobrado: 'Townhouse', cobertura: 'Penthouse', studio: 'Studio', garden: 'Garden apartment', kitnet: 'Studio apartment', 'terreno/lote': 'Land lot', terreno: 'Land', lote: 'Land lot', 'sala comercial': 'Commercial suite', loja: 'Retail space', galpao: 'Warehouse', comercial: 'Commercial property', 'us single family home': 'Single-family home', ussinglefamilyhome: 'Single-family home', uscondo: 'Condominium', ustownhouse: 'Townhouse', usmultifamily: 'Multi-family home', usland: 'Land' }
-    const stages = { 'pre lancamento': 'Pre-launch', lancamento: 'New launch', 'em obras': 'Under construction', 'pronto para morar': 'Move-in ready' }
     const numberLabel = (value, singular, plural) => /^\d+\+?$/.test(text(value)) && text(value) !== '0' ? `${text(value)} ${text(value) === '1' ? singular : plural}` : ''
     const areaNumber = Number(text(answers.area).replace(/[^\d.,]/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.'))
     const sqft = Number.isFinite(areaNumber) && areaNumber > 0 ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(areaNumber)} sqft` : ''
     const propertyType = types[normalized(answers.propertyType)] || text(answers.propertyType) || 'Property'
-    const stage = stages[normalized(answers.stage)] || text(answers.stage)
+    const stage = localizeHeroNextSystemValue(answers.stage, 'US')
     const location = [text(answers.neighborhood || answers.neighborhoods), text(answers.city)].filter(Boolean).join(', ')
     const cta = localizeHeroNextSystemValue(answers.cta, 'US') || getHeroNextDefaultCta(goal, 'US')
     const phone = answers.contactPhoneChoice === 'Sim, quero divulgar' ? text(answers.contactPhone) : ''
