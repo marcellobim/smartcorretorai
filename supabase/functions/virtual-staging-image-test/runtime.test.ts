@@ -116,25 +116,15 @@ test('rejeita usuário não autenticado sem baixar arquivo ou chamar OpenAI', as
   assert.equal(edits, 0)
 })
 
-test('reports a previously used Virtual Staging trial before upload or provider work', async () => {
-  let providerCalls = 0
-  const result = await json(await handleVirtualStagingImageTest(request({
-    action: 'prepare', client_request_id: requestId, image_count: 1, transformation_type: 'furnish', decoration_style: 'cozy',
-  }), dependencies({
-    prepareEconomy: async () => { throw new Error('VIRTUAL_STAGING_TRIAL_ALREADY_USED') },
-    openAI: { editImage: async () => { providerCalls += 1; throw new Error('must not call provider') } },
-  })))
-  assert.equal(result.code, 'virtual_staging_trial_already_used')
-  assert.equal(providerCalls, 0)
-})
-
-test('passes the Landing trial flag only when the authenticated request opts in', async () => {
-  const preparedFlags: boolean[] = []
+test('prepares the normal 1-5 image contract without a product-specific trial flag', async () => {
+  const preparedCounts: number[] = []
   const common = { action: 'prepare', client_request_id: requestId, image_count: 1, transformation_type: 'furnish', decoration_style: 'cozy' }
-  const capture = () => dependencies({ prepareEconomy: async ({ landingTrial }) => { preparedFlags.push(landingTrial); return { status: 'processing' } } })
+  const capture = () => dependencies({ prepareEconomy: async ({ imageCount }) => { preparedCounts.push(imageCount); return { status: 'processing' } } })
   assert.equal((await handleVirtualStagingImageTest(request(common), capture())).status, 200)
-  assert.equal((await handleVirtualStagingImageTest(request({ ...common, landing_trial: true }), capture())).status, 200)
-  assert.deepEqual(preparedFlags, [false, true])
+  assert.equal((await handleVirtualStagingImageTest(request({ ...common, image_count: 5 }), capture())).status, 200)
+  const legacy = await json(await handleVirtualStagingImageTest(request({ ...common, landing_trial: true }), capture()))
+  assert.equal(legacy.code, 'invalid_economic_request')
+  assert.deepEqual(preparedCounts, [1, 5])
 })
 
 test('exige o módulo furnish-renovate e rejeita outros módulos', async () => {

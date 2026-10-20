@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
+import { authCallbackUrl, normalizePostAuthDestination } from './post-auth-destination'
 import { stripProviderTokens } from './auth-storage'
 import {
   AUTH_SESSION_TRANSITION,
@@ -392,11 +393,26 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  const signInWithGoogle = async () => {
+  const signInWithEmailLink = async (email, metadata = {}, captchaToken, destination = 'home') => {
+    if (!captchaToken) throw new Error('captcha_required')
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        data: metadata,
+        captchaToken,
+        shouldCreateUser: true,
+        emailRedirectTo: authCallbackUrl(normalizePostAuthDestination(destination)),
+      },
+    })
+    if (error) throw error
+    return data
+  }
+
+  const signInWithGoogle = async (destination = 'home') => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: authCallbackUrl(normalizePostAuthDestination(destination)),
         scopes: 'openid email profile',
       },
     })
@@ -478,6 +494,7 @@ export function AuthProvider({ children }) {
     isAuthenticated,
     signIn,
     signUp,
+    signInWithEmailLink,
     signInWithGoogle,
     signOut,
     logout: signOut,

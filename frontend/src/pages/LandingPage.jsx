@@ -11,6 +11,7 @@ import BrandMark from '../components/brand/BrandMark'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import { useLocale } from '../i18n/useLocale'
 import MarketSelector from '../components/i18n/MarketSelector'
+import { authEntryPath } from '../lib/post-auth-destination'
 const VIRTUAL_STAGING_BEFORE_IMAGE = '/landing/virtual-staging-before.jpg'
 const VIRTUAL_STAGING_AFTER_IMAGE = '/landing/virtual-staging-after.webp'
 const VIRTUAL_STAGING_PHONE_SEQUENCES = t => {
@@ -32,11 +33,6 @@ const NAV_ITEMS = t => [
   { id: 'plans', label: t('landing.navigation.plans'), to: '/planos' },
   { id: 'faq', label: t('landing.navigation.faq'), href: '#faq' },
 ]
-const trialOfferedLabel = (t, locale) => new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format([
-  t('landing.trial.banner'),
-  t('landing.trial.virtualStaging'),
-])
-// TRIAL_OFFERED_LABEL is intentionally localized at render time by trialOfferedLabel.
 const VIDEO_POSTERS = Object.freeze({
   '/demos-videos/animar-imagens.mp4': '/landing/posters/animar-imagens.webp',
   '/demos-videos/video-campanha.mp4': '/landing/posters/video-campanha.webp',
@@ -187,7 +183,7 @@ const FAQ_ITEMS = (t, locale) => [
   [t('landing.faq.items.tokens.question'), `${t('landing.faq.items.tokens.answerPrefix')} ${BRAND.name}. ${t('landing.faq.items.tokens.answerSuffix')}`],
   [t('landing.faq.items.subscription.question'), t('landing.faq.items.subscription.answer')],
   [t('landing.faq.items.buyTokens.question'), t('landing.faq.items.buyTokens.answer')],
-  [t('landing.faq.items.freeTrial.question'), `${t('landing.faq.items.freeTrial.answerPrefix')} ${trialOfferedLabel(t, locale)}. ${t('landing.faq.items.freeTrial.answerSuffix')}`],
+  [t('landing.faq.items.freeTrial.question'), `${t('landing.faq.items.freeTrial.answerPrefix')} ${t('landing.faq.items.freeTrial.answerSuffix')}`],
   [t('landing.faq.items.generationFailure.question'), t('landing.faq.items.generationFailure.answer')],
   [t('landing.faq.items.cancelSubscription.question'), t('landing.faq.items.cancelSubscription.answer')],
   [t('landing.faq.items.manageSubscription.question'), t('landing.faq.items.manageSubscription.answer')],
@@ -285,7 +281,7 @@ function LandingHeader() {
   }, [open])
   const navClass = `rounded-lg px-3 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/5 hover:text-white ${focusRing}`
   const navItems = NAV_ITEMS(t)
-  return <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/90 text-white backdrop-blur-xl"><div className="mx-auto flex max-w-[92rem] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10"><Link to="/" aria-label={`${BRAND.name} — ${t('landing.navigation.home')}`} className={`flex items-center gap-2.5 rounded-xl ${focusRing}`}><BrandMark size={38} decorative /><span className="text-sm font-black sm:text-base">{BRAND.name}</span></Link><nav aria-label={t('landing.navigation.main')} className="hidden items-center gap-1 lg:flex">{navItems.map(item => item.to ? <Link key={item.id} to={item.to} onClick={() => item.to === '/planos' && trackCta('view_plans')} className={navClass}>{item.label}</Link> : <a key={item.id} href={item.href} className={navClass}>{item.label}</a>)}</nav><div className="flex items-center gap-2"><Link to="/login" onClick={() => trackCta('login')} className={`hidden rounded-xl px-3 py-2 text-sm font-black text-slate-200 md:inline-flex ${focusRing}`}>{t('landing.navigation.signIn')}</Link><Link to="/cadastro" onClick={() => trackCta('start_free')} className={`inline-flex whitespace-nowrap rounded-xl bg-violet-600 px-3 py-2.5 text-[11px] font-black text-white shadow-lg hover:bg-violet-500 sm:px-4 sm:text-sm ${focusRing}`}>{t('landing.navigation.tryFree')}</Link><button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="landing-mobile-menu" aria-label={open ? t('landing.navigation.closeMenu') : t('landing.navigation.openMenu')} className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 lg:hidden ${focusRing}`}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button></div></div>{open && <nav id="landing-mobile-menu" aria-label={t('landing.navigation.mobile')} className="border-t border-white/10 bg-[#080c19] px-4 py-4 lg:hidden"><div className="grid gap-1">{navItems.map(item => item.to ? <Link key={item.id} to={item.to} onClick={() => { if (item.to === '/planos') trackCta('view_plans'); setOpen(false) }} className={navClass}>{item.label}</Link> : <a key={item.id} href={item.href} onClick={() => setOpen(false)} className={navClass}>{item.label}</a>)}<Link to="/login" onClick={() => { trackCta('login'); setOpen(false) }} className={`${navClass} sm:hidden`}>{t('landing.navigation.signIn')}</Link><MarketSelector compact className="mt-3" /></div></nav>}</header>
+  return <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/90 text-white backdrop-blur-xl"><div className="mx-auto flex max-w-[92rem] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10"><Link to="/" aria-label={`${BRAND.name} — ${t('landing.navigation.home')}`} className={`flex items-center gap-2.5 rounded-xl ${focusRing}`}><BrandMark size={38} decorative /><span className="text-sm font-black sm:text-base">{BRAND.name}</span></Link><nav aria-label={t('landing.navigation.main')} className="hidden items-center gap-1 lg:flex">{navItems.map(item => item.to ? <Link key={item.id} to={item.to} onClick={() => item.to === '/planos' && trackCta('view_plans')} className={navClass}>{item.label}</Link> : <a key={item.id} href={item.href} className={navClass}>{item.label}</a>)}</nav><div className="flex items-center gap-2"><Link to={authEntryPath('/login')} onClick={() => trackCta('login')} className={`hidden rounded-xl px-3 py-2 text-sm font-black text-slate-200 md:inline-flex ${focusRing}`}>{t('landing.navigation.signIn')}</Link><Link to={authEntryPath('/cadastro')} onClick={() => trackCta('start_free')} className={`inline-flex whitespace-nowrap rounded-xl bg-violet-600 px-3 py-2.5 text-[11px] font-black text-white shadow-lg hover:bg-violet-500 sm:px-4 sm:text-sm ${focusRing}`}>{t('landing.navigation.tryFree')}</Link><button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls="landing-mobile-menu" aria-label={open ? t('landing.navigation.closeMenu') : t('landing.navigation.openMenu')} className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 lg:hidden ${focusRing}`}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button></div></div>{open && <nav id="landing-mobile-menu" aria-label={t('landing.navigation.mobile')} className="border-t border-white/10 bg-[#080c19] px-4 py-4 lg:hidden"><div className="grid gap-1">{navItems.map(item => item.to ? <Link key={item.id} to={item.to} onClick={() => { if (item.to === '/planos') trackCta('view_plans'); setOpen(false) }} className={navClass}>{item.label}</Link> : <a key={item.id} href={item.href} onClick={() => setOpen(false)} className={navClass}>{item.label}</a>)}<Link to={authEntryPath('/login')} onClick={() => { trackCta('login'); setOpen(false) }} className={`${navClass} sm:hidden`}>{t('landing.navigation.signIn')}</Link><MarketSelector compact className="mt-3" /></div></nav>}</header>
 }
 
 function HeroMedia({ slide, active }) {
@@ -328,8 +324,8 @@ function Hero() {
           <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-slate-300 sm:text-lg">{t('landing.hero.description')}</p>
           <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-violet-200 sm:text-base">{t('landing.hero.distribution')}</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <Link to="/criar-anuncio" onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.trial.banner')}<ArrowRight className="h-4 w-4" /></Link>
-            <Link to="/testar-virtual-staging" onClick={() => trackCta('virtual_staging_trial_entry')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}>{t('landing.trial.virtualStaging')}<ArrowRight className="h-4 w-4" /></Link>
+            <Link to={authEntryPath('/cadastro', 'real_estate_banner')} onClick={() => trackCta('start_free')} className={`inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.trial.banner')}<ArrowRight className="h-4 w-4" /></Link>
+            <Link to={authEntryPath('/cadastro', 'virtual_staging')} onClick={() => trackCta('virtual_staging_trial_entry')} className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-6 py-4 text-sm font-black text-white hover:bg-white/5 ${focusRing}`}>{t('landing.trial.virtualStaging')}<ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>
         <div className="relative mx-auto w-full max-w-[800px] py-6 sm:px-8 lg:px-0">
@@ -438,7 +434,7 @@ function ImagePreviewCard({ item }) {
   </article>
 }
 
-function ImageShowcase({ group, ctaTo = '/cadastro', ctaLabel }) {
+function ImageShowcase({ group, ctaTo = authEntryPath('/cadastro'), ctaLabel }) {
   const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(0)
   const trackCta = useLandingCtaTracking('product_section')
@@ -464,7 +460,7 @@ function RealEstateBannerSpotlight() {
   const imageGroup = localizedDeliveryGroups(t).find(group => group.id === 'imagens-campanhas')
   const banner = imageGroup?.items.find(item => item.id === 'banner-imobiliario')
   if (!banner) return null
-  return <ImageShowcase group={{ ...imageGroup, id: 'real-estate-banner', items: [banner] }} ctaTo="/criar-anuncio" ctaLabel={t('landing.trial.banner')} />
+  return <ImageShowcase group={{ ...imageGroup, id: 'real-estate-banner', items: [banner] }} ctaTo={authEntryPath('/cadastro', 'real_estate_banner')} ctaLabel={t('landing.trial.banner')} />
 }
 
 function DeliveryShowcase() {
@@ -521,7 +517,7 @@ function VirtualStagingSpotlight() {
     <div className="mx-auto max-w-[92rem] px-4 sm:px-6 lg:px-10">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] lg:items-end">
         <div className="min-w-0"><p className="text-xs font-black uppercase tracking-[.18em] text-violet-700">{t('landing.smartSpace.eyebrow')}</p><p className="mt-3 text-sm font-black text-slate-500">{VIRTUAL_STAGING_PRODUCT_DESCRIPTOR}</p><h2 className="mt-5 max-w-4xl text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl">{t('landing.smartSpace.title')}<br /><span className="text-violet-700">{t('landing.smartSpace.titleHighlight')}</span></h2></div>
-        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">{t('landing.smartSpace.description')}</p><Link to="/testar-virtual-staging" onClick={() => trackCta('virtual_staging_trial_entry')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.smartSpace.cta')}<ArrowRight className="h-4 w-4" /></Link></div>
+        <div className="min-w-0 lg:pb-1"><p className="max-w-2xl text-base font-medium leading-7 text-slate-600 sm:text-lg">{t('landing.smartSpace.description')}</p><Link to={authEntryPath('/cadastro', 'virtual_staging')} onClick={() => trackCta('virtual_staging_trial_entry')} className={`mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-4 text-sm font-black text-white hover:bg-violet-500 ${focusRing}`}>{t('landing.smartSpace.cta')}<ArrowRight className="h-4 w-4" /></Link></div>
       </div>
       <div className="relative mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_50%_25%,#312e81_0%,#11152d_34%,#060914_78%)] px-4 pb-8 pt-10 shadow-[0_40px_100px_-55px_rgba(15,23,42,.75)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-14 lg:pb-14">
         <div className="pointer-events-none absolute inset-x-1/4 top-0 h-40 rounded-full bg-violet-500/20 blur-[70px]" />

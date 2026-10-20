@@ -91,7 +91,8 @@ test('the shared backend gate sends any stale authenticated session to a new app
 
 test('legal acceptance route is exempt from its own private-route redirect and preserves the session', () => {
   assert.match(app, /<Route path="\/aceite-legal" element=\{<LegalOnboardingPage \/>\} \/>/)
-  assert.match(legalOnboarding, /if \(onboardingState === 'accepted'\) return <Navigate to="\/dashboard" replace \/>/)
+  assert.match(legalOnboarding, /peekPostAuthDestination\(\) \|\| '\/dashboard'/)
+  assert.match(legalOnboarding, /if \(onboardingState === 'accepted'\) return <Navigate to=\{takePostAuthDestination\(\) \|\| postLegalDestination\} replace \/>/)
   assert.doesNotMatch(legalOnboarding, /Navigate to="\/aceite-legal"/)
   const acceptFunction = auth.match(/const acceptLegalDocuments = async \(\) => \{([\s\S]*?)const signOut/)
   assert.ok(acceptFunction)

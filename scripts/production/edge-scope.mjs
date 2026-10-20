@@ -31,13 +31,17 @@ export const VIRTUAL_STAGING_TRIAL_FUNCTIONS=Object.freeze([
  'virtual-staging-image-test',
 ])
 export const VIRTUAL_STAGING_TRIAL_MIGRATION='supabase/migrations/20261017010000_add_virtual_staging_landing_trial.sql'
+export const FREE_ACCOUNT_400_ST_FUNCTIONS=Object.freeze([
+ 'virtual-staging-image-test',
+])
+export const FREE_ACCOUNT_400_ST_MIGRATION='supabase/migrations/20261019010000_unify_free_account_smart_tokens.sql'
 export const PROFESSIONAL_IDENTITY_BASELINES=Object.freeze({
  // Four functions advanced before the batch guard rejected the unchanged Hero version.
  // Resume only from the remote state observed immediately before this guarded retry.
  'smart-carousel-creatomate':55,'smart-tour-generate':88,'criar-video-ia':214,'generate-text-campaign':45,'gerar-hero-ia':87,
 })
 
-const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity','--real-estate-video-localization','--campaign-localization','--text-campaign-hotfix','--ai-studio-commercial-hotfix','--virtual-staging-trial']
+const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity','--real-estate-video-localization','--campaign-localization','--text-campaign-hotfix','--ai-studio-commercial-hotfix','--virtual-staging-trial','--free-account-400-st']
 
 export function deploymentMode(args){
  const modes=[]
@@ -67,6 +71,7 @@ export function edgeScope(args) {
  if(mode==='--text-campaign-hotfix')return ['generate-text-campaign']
  if(mode==='--ai-studio-commercial-hotfix')return [...AI_STUDIO_COMMERCIAL_FUNCTIONS]
  if(mode==='--virtual-staging-trial')return [...VIRTUAL_STAGING_TRIAL_FUNCTIONS]
+ if(mode==='--free-account-400-st')return [...FREE_ACCOUNT_400_ST_FUNCTIONS]
  if(mode==='--banner-recovery-hotfix')return [BANNER_RECOVERY_RELEASE.functionName]
  return []
 }

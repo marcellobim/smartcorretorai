@@ -19,7 +19,7 @@ test('the four server-owned Gemini family SKUs quote exactly one 325 ST generati
     assert.equal(sku.smartTokenCost, 325)
     assert.equal(sku.variant, 'standard')
     assert.equal(sku.enabled, true)
-    assert.equal(sku.trialEligible, false)
+    assert.equal('trialEligible' in sku, false)
     assert.equal(sku.metadata.quantity, 1)
   }
 })

@@ -17,7 +17,6 @@ export type EconomicSku = Readonly<{
   variant: string
   smartTokenCost: number
   enabled: boolean
-  trialEligible: boolean
   providerCategory: ProviderCategory
   catalogVersion: string
   metadata: Readonly<Record<string, unknown>>
@@ -28,7 +27,6 @@ const sku = (
   variant: string,
   smartTokenCost: number,
   providerCategory: ProviderCategory,
-  trialEligible = false,
   metadata: Record<string, unknown> = {},
   enabled = false,
 ): EconomicSku => Object.freeze({
@@ -36,42 +34,41 @@ const sku = (
   variant,
   smartTokenCost,
   enabled,
-  trialEligible,
   providerCategory,
   catalogVersion: ECONOMIC_CATALOG_VERSION,
   metadata: Object.freeze({ pricingStatus: 'modeled', ...metadata }),
 })
 export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
-  sku('real_estate_video', 'standard', 325, 'gemini_video', false, {
+  sku('real_estate_video', 'standard', 325, 'gemini_video', {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
   }, true),
-  sku('life_in_property', 'standard', 325, 'composite', false, {
+  sku('life_in_property', 'standard', 325, 'composite', {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
   }, true),
-  sku('broker_presentation', 'standard', 325, 'composite', false, {
+  sku('broker_presentation', 'standard', 325, 'composite', {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
   }, true),
-  sku('short_videos', 'standard', 325, 'composite', false, {
+  sku('short_videos', 'standard', 325, 'composite', {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
   }, true),
-  sku('real_estate_commercial', 'standard', 120, 'veo_video', false, {
+  sku('real_estate_commercial', 'standard', 120, 'veo_video', {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
   }, true),
-  sku('creative_video', 'standard', 120, 'veo_video', false, {
+  sku('creative_video', 'standard', 120, 'veo_video', {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1,
   }, true),
   // Product 1 is activated explicitly while the global rollout remains off.
-  sku('text_campaign', 'standard', 25, 'openai_text', true, {}, true),
+  sku('text_campaign', 'standard', 25, 'openai_text', {}, true),
 
   // Raio-X charges one fixed analysis unit regardless of URL/image input or
   // the number of screenshots accepted by the request.
-  sku('listing_xray', 'analysis', 10, 'openai_text', true, {
+  sku('listing_xray', 'analysis', 10, 'openai_text', {
     pricingStatus: 'approved', telemetryRequired: true, quantity: 1, maxImagesPerRequest: 5,
   }, true),
 
   // Product 3 has one canonical server-owned unit. References and formats do
   // not change the quote; the validated number of final pieces does.
-  sku('real_estate_banner', 'item', 75, 'openai_image', false, {
+  sku('real_estate_banner', 'item', 75, 'openai_image', {
     quantity: 1,
     pricingStatus: 'approved',
     telemetryRequired: true,
@@ -81,7 +78,7 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
 
   // Product 2 is quoted server-side by multiplying this canonical unit.
   // Static and video deliveries intentionally have the same public weight.
-  sku('quick_banners', 'item', 45, 'composite', true, {
+  sku('quick_banners', 'item', 45, 'composite', {
     quantity: 1,
     media: 'mixed',
     pricingStatus: 'approved',
@@ -91,14 +88,14 @@ export const ECONOMIC_SKUS: readonly EconomicSku[] = Object.freeze([
   // Virtual Staging is charged per image actually delivered. The request
   // reserves imageCount * 30 before the first provider call and settles each
   // image independently.
-  sku('virtual_staging', 'image', 30, 'openai_image', false, {
+  sku('virtual_staging', 'image', 30, 'openai_image', {
     quantity: 1,
     pricingStatus: 'approved',
     telemetryRequired: true,
     maxImagesPerRequest: 5,
   }, true),
 
-  sku('smart_carousel', 'standard', 100, 'composite', true, {
+  sku('smart_carousel', 'standard', 100, 'composite', {
     pricingStatus: 'approved', telemetryRequired: true, minImages: 5, maxImages: 20,
   }, true),
 ])

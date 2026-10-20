@@ -1,11 +1,11 @@
 import { videoLoginDestination } from '../lib/smart-tour-auth-recovery'
+import { capturePostAuthDestination } from '../lib/post-auth-destination'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BRAND } from '../config/brand'
 import BrandMark from '../components/brand/BrandMark'
 import { supabase } from '../lib/supabase'
-
-const GENERIC_ERROR = 'Não foi possível entrar com Google. Tente novamente ou entre com e-mail e senha.'
+import { useLocale } from '../i18n/useLocale'
 
 async function removeBlockedGoogleIdentity() {
   const { data, error } = await supabase.auth.getUserIdentities()
@@ -18,14 +18,16 @@ async function removeBlockedGoogleIdentity() {
 }
 
 export default function AuthCallbackPage() {
-  const [errorMessage, setErrorMessage] = useState('')
+  const [hasError, setHasError] = useState(false)
   const navigate = useNavigate()
+  const { t } = useLocale()
 
   useEffect(() => {
     let active = true
 
     const completeCallback = async () => {
       const params = new URLSearchParams(window.location.search)
+      capturePostAuthDestination(window.location.search)
       const code = params.get('code')
       if (!code || params.get('error')) throw new Error('invalid_oauth_callback')
 
@@ -58,7 +60,7 @@ export default function AuthCallbackPage() {
     completeCallback().catch(async () => {
       window.history.replaceState({}, document.title, '/auth/callback')
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
-      if (active) setErrorMessage(GENERIC_ERROR)
+      if (active) setHasError(true)
     })
 
     return () => { active = false }
@@ -68,15 +70,15 @@ export default function AuthCallbackPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-xl">
         <div className="flex items-center justify-center gap-3"><BrandMark size={36} decorative /><span className="font-black">{BRAND.name}</span></div>
-        {errorMessage ? (
+        {hasError ? (
           <>
-            <p role="alert" className="mt-7 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold leading-6 text-red-800">{errorMessage}</p>
-            <Link to="/login" className="mt-6 inline-block text-sm font-bold text-primary-700 hover:underline">Voltar para o login</Link>
+            <p role="alert" className="mt-7 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold leading-6 text-red-800">{t('authCallback.error')}</p>
+            <Link to="/login" className="mt-6 inline-block text-sm font-bold text-primary-700 hover:underline">{t('authCallback.backToLogin')}</Link>
           </>
         ) : (
           <>
             <div className="mx-auto mt-8 h-10 w-10 animate-spin rounded-full border-4 border-primary-200 border-t-primary-800" aria-hidden="true" />
-            <p role="status" className="mt-4 text-sm font-semibold text-slate-700">Concluindo sua entrada com segurança…</p>
+            <p role="status" className="mt-4 text-sm font-semibold text-slate-700">{t('authCallback.completing')}</p>
           </>
         )}
       </section>

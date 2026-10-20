@@ -1,17 +1,11 @@
-import { useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '../lib/auth-context'
-import { preserveVirtualStagingTrialReturn, virtualStagingTrialPath } from '../lib/virtual-staging-trial'
+import { authEntryPath } from '../lib/post-auth-destination'
 
-// Public Landing entry only. The product route remains authenticated because uploads
-// and results are private to the account that owns the trial request.
+// Legacy public URL retained for old landing links. It now starts the normal,
+// authenticated product flow rather than a constrained product-specific trial.
 export default function VirtualStagingTrialEntry() {
   const { user, loading } = useAuthStore()
-
-  useEffect(() => {
-    if (!loading && !user) preserveVirtualStagingTrialReturn()
-  }, [loading, user])
-
   if (loading) return <main className="min-h-screen bg-[#050816] p-8 text-white" role="status">Loading…</main>
-  return <Navigate to={user ? virtualStagingTrialPath() : '/login'} replace />
+  return <Navigate to={user ? '/virtual-staging' : authEntryPath('/cadastro', 'virtual_staging')} replace />
 }

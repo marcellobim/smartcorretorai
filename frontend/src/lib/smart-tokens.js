@@ -43,12 +43,6 @@ export function getSmartTokenErrorMessage(error, fallback = 'Não foi possível 
   const en = locale === 'en-US'
   const code = String(error?.code || error?.context?.code || '').toUpperCase()
   const message = String(error?.message || error || '').trim()
-  if (code === 'VIRTUAL_STAGING_TRIAL_ALREADY_USED' || /VIRTUAL_STAGING_TRIAL_ALREADY_USED/i.test(message)) {
-    return en ? 'Your free Virtual Staging trial has already been used. To continue, add Smart Tokens in Plans.' : 'Seu teste grátis de Virtual Staging já foi utilizado. Para continuar, adicione Smart Tokens em Planos.'
-  }
-  if (code === 'TRIAL_PRODUCT_NOT_ALLOWED' || /TRIAL_PRODUCT_NOT_ALLOWED/i.test(message)) {
-    return en ? 'This product is not included in the free trial. To continue, add Smart Tokens in Plans.' : 'Este produto não está incluído no teste grátis. Para continuar, adicione Smart Tokens em Planos.'
-  }
   if (code === 'INSUFFICIENT_SMART_TOKENS' || /INSUFFICIENT_SMART_TOKENS|Smart Tokens.{0,20}insuficient|saldo.{0,30}insuficient/i.test(message)) {
     return en ? 'You need more Smart Tokens for this creation.' : 'Você precisa de mais Smart Tokens para esta criação.'
   }

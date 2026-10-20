@@ -10,6 +10,7 @@ const register = read('../src/pages/RegisterPage.jsx')
 const forgot = read('../src/pages/ForgotPasswordPage.jsx')
 const reset = read('../src/pages/ResetPasswordPage.jsx')
 const sidebar = read('../src/components/layout/Sidebar.jsx')
+const ptBr = read('../src/i18n/messages/pt-BR.js')
 
 test('password recovery routes exist and use a fixed same-origin callback', () => {
   assert.match(app, /path="\/esqueci-senha"/)
@@ -20,7 +21,8 @@ test('password recovery routes exist and use a fixed same-origin callback', () =
 })
 
 test('recovery avoids account enumeration and globally revokes sessions after reset', () => {
-  assert.match(forgot, /Se existir uma conta para este e-mail/)
+  assert.match(forgot, /t\('forgotPassword\.confirmation'\)/)
+  assert.match(ptBr, /confirmation: 'Se existir uma conta para este e-mail/)
   assert.doesNotMatch(forgot, /Usuário não encontrado|não existe|já cadastrado/i)
   assert.match(forgot, /catch \{[\s\S]*resposta pública não revela[\s\S]*finally \{[\s\S]*setSent\(true\)/)
   assert.match(reset, /event === 'PASSWORD_RECOVERY'/)
@@ -41,24 +43,20 @@ test('logout is fail-closed and the UI does not pretend success on failure', () 
 
 test('public auth errors do not disclose registration state or raw provider errors', () => {
   assert.doesNotMatch(register, /Este email já está cadastrado|User already registered/)
-  assert.match(register, /Não foi possível concluir o cadastro/)
-  assert.match(login, /catch \{[\s\S]*setShowResendButton\(true\)[\s\S]*toast\.error\(GENERIC_LOGIN_ERROR\)/)
-  assert.match(login, /catch \{[\s\S]*resposta pública não revela[\s\S]*finally \{[\s\S]*toast\.success\(GENERIC_RESEND_MESSAGE\)/)
+  assert.match(register, /t\('register\.messages\.genericError'\)/)
+  assert.match(ptBr, /genericError: 'Não foi possível enviar o link de acesso/)
+  assert.match(login, /catch \{[\s\S]*setShowResendButton\(true\)[\s\S]*toast\.error\(t\('login\.errors\.generic'\)\)/)
+  assert.match(login, /catch \{[\s\S]*resposta pública não revela[\s\S]*finally \{[\s\S]*toast\.success\(t\('login\.errors\.resendGeneric'\)\)/)
   assert.doesNotMatch(login, /Email not confirmed|Invalid login credentials|err\.message|Email não confirmado/)
 })
 
-test('new email identity keeps the successful registration flow', () => {
-  assert.match(register, /if \(signupResult\?\.user\?\.identities\?\.length > 0\) \{[\s\S]*trackRegistration\(\)[\s\S]*toast\.success\('Conta criada! Verifique seu email para confirmar o cadastro\.'\)[\s\S]*\} else \{/)
-})
-
-test('empty identity uses a neutral message without claiming account creation', () => {
-  const obfuscatedResponseBranch = register.match(/\} else \{\n([\s\S]*?)\n      \}\n      navigate\('\/login'\)/)?.[1] || ''
-
-  assert.match(obfuscatedResponseBranch, /Não foi possível concluir um novo cadastro com esses dados/)
-  assert.match(obfuscatedResponseBranch, /Se você já possui uma conta, entre normalmente ou use “Esqueci minha senha”/)
-  assert.doesNotMatch(obfuscatedResponseBranch, /Conta criada|e-mail já está cadastrado|email já está cadastrado/i)
+test('email-link registration intentionally gives the same safe confirmation to new and existing identities', () => {
+  assert.match(register, /await signInWithEmailLink\(/)
+  assert.match(register, /toast\.success\(t\('register\.messages\.linkSent'\)\)/)
+  assert.doesNotMatch(register, /identities|já está cadastrado|conta criada/i)
 })
 
 test('real signup errors keep the generic non-enumerating failure message', () => {
-  assert.match(register, /const signupResult = await signUp\([\s\S]*?\} catch \{\r?\n      toast\.error\('Não foi possível concluir o cadastro\. Verifique os dados ou tente novamente mais tarde\.'\)/)
+  assert.match(register, /\} catch \{\r?\n      toast\.error\(t\('register\.messages\.genericError'\)\)/)
+  assert.doesNotMatch(register, /error\?\.message|err\.message/)
 })

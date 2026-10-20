@@ -122,13 +122,13 @@ serve(withCors(async (request) => {
       if (error) throw new Error('storage_upload_failed')
     },
     now: () => Date.now(),
-    prepareEconomy: async ({ userId, clientRequestId, imageCount, transformationType, decorationStyle, landingTrial }) => {
+    prepareEconomy: async ({ userId, clientRequestId, imageCount, transformationType, decorationStyle }) => {
       const sku = quoteEconomicSku('virtual_staging', 'image')
       if (sku.smartTokenCost !== 30) throw new Error('virtual_staging_catalog_mismatch')
       const { data, error } = await supabase.rpc('prepare_smart_space_request', {
         p_user_id: userId, p_client_request_id: clientRequestId, p_image_count: imageCount,
         p_transformation_type: transformationType, p_decoration_style: decorationStyle,
-        p_catalog_version: ECONOMIC_CATALOG_VERSION, p_landing_trial: landingTrial,
+        p_catalog_version: ECONOMIC_CATALOG_VERSION,
       })
       if (error) throw new Error(error.message)
       return Array.isArray(data) ? data[0] : data

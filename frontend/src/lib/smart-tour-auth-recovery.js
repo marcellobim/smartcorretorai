@@ -1,5 +1,5 @@
 import { getProductDraftStorageKey, readProductDraft } from './product-draft.js'
-import { takeVirtualStagingTrialReturn } from './virtual-staging-trial.js'
+import { takePostAuthDestination } from './post-auth-destination.js'
 
 export const VIDEO_REAUTH_MESSAGE = 'Sua sessão não é mais válida. Entre novamente para continuar. A geração não será reenviada automaticamente.'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -48,8 +48,8 @@ export async function verifyVideoUploads(client, value, userId) {
 }
 
 export function videoLoginDestination(storage, userId) {
-  const virtualStagingTrial = takeVirtualStagingTrialReturn(storage)
-  if (virtualStagingTrial) return virtualStagingTrial
+  const requestedDestination = takePostAuthDestination(storage)
+  if (requestedDestination) return requestedDestination
   const draft = readProductDraft(storage, { productKey: 'video-imobiliario', schemaVersion: 1, userId })
   return draft?.resumeAfterLogin === true ? '/smart-tour-ai' : '/dashboard'
 }

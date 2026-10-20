@@ -92,7 +92,7 @@ test('customer availability: real browser, desktop/mobile, trial/admin, routes a
     await page.locator('#imagens-campanhas').screenshot({path:path.join(root,'dist','cleanup-images-'+width+'.png')})
    }
    await page.getByRole('button',{name:'Como funciona o teste grátis?',exact:true}).click()
-   assert.match(await page.locator('#faq').innerText(),/200 Smart Tokens[\s\S]*Campanha de Textos e Smart Carrossel/)
+   assert.match(await page.locator('#faq').innerText(),/Smart Tokens iniciais[\s\S]*recursos ativos/)
    await absent()
    for(const button of await page.locator('#faq button[aria-expanded]').all()){await button.click();await absent()}
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'No horizontal overflow')
@@ -150,7 +150,7 @@ test('customer availability: real browser, desktop/mobile, trial/admin, routes a
   await mount('terms')
   const terms=await page.locator('#root').innerText()
   assert.doesNotMatch(terms,/Banners Rápidos/)
-  for(const phrase of ['200 Smart Tokens','Campanha de Textos','Smart Carrossel'])assert.ok(terms.includes(phrase))
+  for(const phrase of ['Smart Tokens','Créditos promocionais ou trial'])assert.ok(terms.includes(phrase))
   for(const url of ['/raio-x-anuncio','/nova-campanha']){
    await mount('guard',{url})
    await page.waitForSelector('[data-destination]')

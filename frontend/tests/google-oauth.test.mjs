@@ -56,13 +56,13 @@ test('storage purges provider credentials while preserving the Supabase session'
 
 test('Google OAuth is fixed to the official provider, minimum scopes and callback', () => {
   assert.match(auth, /signInWithOAuth\(\{[\s\S]*provider: 'google'/)
-  assert.match(auth, /redirectTo: `\$\{window\.location\.origin\}\/auth\/callback`/)
+  assert.match(auth, /redirectTo: authCallbackUrl\(normalizePostAuthDestination\(destination\)\)/)
   assert.match(auth, /scopes: 'openid email profile'/)
   assert.doesNotMatch(auth, /access_type|offline|prompt:\s*'consent'|returnTo|redirect_uri/)
   assert.match(login, /<GoogleAuthButton/)
   assert.match(register, /<GoogleAuthButton/)
-  assert.match(login, /Não foi possível entrar com Google[\s\S]*e-mail e senha/)
-  assert.match(register, /Não foi possível entrar com Google[\s\S]*e-mail e senha/)
+  assert.match(login, /t\('login\.errors\.google'\)/)
+  assert.match(register, /t\('register\.messages\.googleError'\)/)
 })
 
 test('manual PKCE callbacks clear the code and never honor arbitrary destinations', () => {
@@ -79,8 +79,8 @@ test('OAuth onboarding is routed through server-owned state and legal acceptance
   assert.match(app, /path="\/aceite-legal"/)
   assert.match(app, /onboardingState === 'needs_acceptance'/)
   assert.match(auth, /rpc\('accept_current_legal_documents'\)/)
-  assert.match(legal, /Termos de Uso/)
-  assert.match(legal, /Política de Privacidade/)
+  assert.match(legal, /t\('legalOnboarding\.terms'\)/)
+  assert.match(legal, /t\('legalOnboarding\.privacy'\)/)
   assert.match(legal, /disabled=\{!accepted\}/)
   assert.doesNotMatch(legal, /accepted_at|terms_version|privacy_version|user_id/)
 })

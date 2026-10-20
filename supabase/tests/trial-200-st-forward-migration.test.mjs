@@ -58,15 +58,10 @@ test('preserves the paid-account transition and the existing FEFO transaction pa
   assert.doesNotMatch(migration, /CREATE OR REPLACE FUNCTION public\.grant_stripe_credit_lot/)
 })
 
-test('catalog source agrees with the exact trial allowlist and keeps Gemini, Veo and staging excluded', () => {
-  const eligible = catalog.match(/sku\('[^']+', '[^']+', \d+, '[^']+', true,/g)
-  assert.deepEqual(eligible, [
-    "sku('text_campaign', 'standard', 25, 'openai_text', true,",
-    "sku('quick_banners', 'item', 45, 'composite', true,",
-    "sku('smart_carousel', 'standard', 100, 'composite', true,",
-  ])
+test('current catalog does not carry a per-product trial allowlist', () => {
+  assert.doesNotMatch(catalog, /trialEligible/)
   for (const product of ['real_estate_video', 'real_estate_commercial', 'creative_video', 'virtual_staging', 'real_estate_banner']) {
-    assert.match(catalog, new RegExp(`sku\\('${product}',[^\\n]+ false,`))
+    assert.match(catalog, new RegExp(`sku\\('${product}',`))
   }
 })
 

@@ -1,7 +1,7 @@
 import { hasVideoLoginRecovery, videoLoginDestination } from '../lib/smart-tour-auth-recovery'
 import { BRAND } from '../config/brand'
 import { useCallback, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Eye, EyeOff, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -15,13 +15,12 @@ import GoogleAuthButton from '../components/auth/GoogleAuthButton'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import { useLocale } from '../i18n/useLocale'
 import MarketSelector from '../components/i18n/MarketSelector'
-
-const GENERIC_LOGIN_ERROR = 'Não foi possível entrar. Verifique os dados informados ou tente novamente mais tarde.'
-const GENERIC_RESEND_MESSAGE = 'Se houver um cadastro pendente para este e-mail, enviaremos novas instruções quando o envio estiver disponível.'
+import { authEntryPath, preservePostAuthDestination, readPostAuthDestination } from '../lib/post-auth-destination'
 
 export default function LoginPage() {
   const [resumeVideo] = useState(() => hasVideoLoginRecovery(sessionStorage))
   const [showPassword, setShowPassword] = useState(false)
+  const [usePasswordLogin, setUsePasswordLogin] = useState(false)
   const [showResendButton, setShowResendButton] = useState(false)
   const [resendingEmail, setResendingEmail] = useState(false)
   const [userEmail, setUserEmail] = useState('')
@@ -30,37 +29,46 @@ export default function LoginPage() {
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef(null)
   const handleCaptchaToken = useCallback(token => setCaptchaToken(token), [])
-  const { signIn, signInWithGoogle } = useAuth()
+  const { signIn, signInWithEmailLink, signInWithGoogle } = useAuth()
   const { trackEvent } = useAnalytics()
   const { t } = useLocale()
   const navigate = useNavigate()
+  const location = useLocation()
+  const destination = readPostAuthDestination(location.search)
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const handleGoogle = async () => {
     setGoogleLoading(true)
     try {
-      await signInWithGoogle()
+      preservePostAuthDestination(destination)
+      await signInWithGoogle(destination)
     } catch {
-      toast.error('Não foi possível entrar com Google. Tente novamente ou entre com e-mail e senha.')
+      toast.error(t('login.errors.google'))
       setGoogleLoading(false)
     }
   }
 
   const onSubmit = async (data) => {
     if (!captchaToken) {
-      toast.error('Conclua a verificação de segurança para continuar.')
+      toast.error(t('login.errors.securityRequired'))
       return
     }
     setLoading(true)
     try {
       setUserEmail(data.email)
+      preservePostAuthDestination(destination)
+      if (!usePasswordLogin) {
+        await signInWithEmailLink(data.email, {}, captchaToken, destination)
+        toast.success(t('login.emailLink.sent'))
+        return
+      }
       const signedIn = await signIn(data.email, data.senha, captchaToken)
       trackEvent('login_completed')
       toast.success(t('login.welcomeBack'))
       navigate(videoLoginDestination(sessionStorage, signedIn?.user?.id))
     } catch {
       setShowResendButton(true)
-      toast.error(GENERIC_LOGIN_ERROR)
+      toast.error(t('login.errors.generic'))
     } finally {
       captchaRef.current?.reset()
       setLoading(false)
@@ -69,11 +77,11 @@ export default function LoginPage() {
 
   const handleResendConfirmation = async () => {
     if (!userEmail) {
-      toast.error('Por favor, insira seu e-mail primeiro')
+      toast.error(t('login.errors.emailRequired'))
       return
     }
     if (!captchaToken) {
-      toast.error('Conclua uma nova verificação de segurança para continuar.')
+      toast.error(t('login.errors.resendSecurity'))
       return
     }
     setResendingEmail(true)
@@ -87,7 +95,7 @@ export default function LoginPage() {
     } catch {
       // A resposta pública não revela se o e-mail existe, está pendente ou foi limitado.
     } finally {
-      toast.success(GENERIC_RESEND_MESSAGE)
+      toast.success(t('login.errors.resendGeneric'))
       captchaRef.current?.reset()
       setResendingEmail(false)
     }
@@ -129,7 +137,7 @@ export default function LoginPage() {
           {resumeVideo && <p role="status" className="mt-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">{t('login.resumeVideo')}</p>}
           <p className="mt-1 text-sm text-gray-500">
             {t('login.noAccount')}{' '}
-            <Link to="/cadastro" className="text-primary-600 font-semibold hover:text-primary-700">
+            <Link to={authEntryPath('/cadastro', destination)} className="text-primary-600 font-semibold hover:text-primary-700">
               {t('login.signUp')}
             </Link>
           </p>
@@ -157,7 +165,7 @@ export default function LoginPage() {
               })}
             />
 
-            <div className="relative">
+            {usePasswordLogin && <div className="relative">
               <Input
                 label={t('login.password.label')}
                 type={showPassword ? 'text' : 'password'}
@@ -172,19 +180,23 @@ export default function LoginPage() {
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
-            </div>
+            </div>}
 
-            <div className="flex justify-end">
+            {usePasswordLogin && <div className="flex justify-end">
               <Link to="/esqueci-senha" className="text-sm text-primary-600 hover:text-primary-700">
                 {t('login.forgotPassword')}
               </Link>
-            </div>
+            </div>}
 
             <TurnstileWidget ref={captchaRef} onTokenChange={handleCaptchaToken} />
 
             <Button type="submit" loading={loading} disabled={!captchaToken} className="w-full mt-2">
-              {t('login.submit')}
+              {usePasswordLogin ? t('login.submit') : t('login.emailLink.submit')}
             </Button>
+
+            <button type="button" onClick={() => setUsePasswordLogin(value => !value)} className="w-full text-sm font-semibold text-primary-700 hover:underline">
+              {usePasswordLogin ? t('login.emailLink.useSecureLink') : t('login.emailLink.usePassword')}
+            </button>
 
             {showResendButton && (
               <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">

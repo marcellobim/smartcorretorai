@@ -62,10 +62,10 @@ test('renders a compact insufficient-balance warning and existing recharge route
   assert.doesNotMatch(estimate, /required_tokens|available_tokens|JSON/)
 })
 
-test('turns the server trial allowlist rejection into a clear commercial next step', () => {
-  assert.match(economy, /TRIAL_PRODUCT_NOT_ALLOWED/)
-  assert.match(economy, /Este produto não está incluído no teste grátis/)
-  assert.match(economy, /adicione Smart Tokens em Planos/)
+test('uses the same insufficient-balance path for free and paid Smart Tokens', () => {
+  assert.doesNotMatch(economy, /TRIAL_PRODUCT_NOT_ALLOWED/)
+  assert.doesNotMatch(economy, /VIRTUAL_STAGING_TRIAL_ALREADY_USED/)
+  assert.match(economy, /INSUFFICIENT_SMART_TOKENS/)
 })
 
 test('quotes Textos 25, Carrossel 100, Veo 120 and Gemini 325 at the final CTA', () => {

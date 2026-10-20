@@ -36,6 +36,7 @@ import { getMetaConnectionStatus, redirectToMetaOAuth } from '../lib/meta-oauth-
 import { clearPendingBannerPublication, preservePendingBannerPublication, publishBannerPublication, readPendingBannerPublication, recoverBannerPublication } from '../lib/banner-social-publish'
 import { buildProfessionalIdentity, formatProfessionalIdentity, hasCompleteProfessionalIdentity, professionalIdentityForRequest, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import ProfessionalIdentityQuestion from '../components/professional/ProfessionalIdentityQuestion'
+import ProfilePhoneQuestion from '../components/professional/ProfilePhoneQuestion'
 import { formatConversationSystemAnswer, getConversationControls } from '../config/conversationControls'
 import { getCountiesByState, getStatesForMarket, getUsCitiesByCounty, isValidUsZipCode, normalizeUsZipCode } from '../config/locations'
 import { formatPhone } from '../utils/phoneFormatters'
@@ -3201,14 +3202,19 @@ export default function HeroNext({ guestMode = false } = {}) {
     }
 
     if (currentQuestion.id === 'contactPhoneChoice') {
+      if (!guestMode && !profilePhone) return (
+        <div className="mt-5 space-y-4">
+          <ProfilePhoneQuestion market={market} profile={profile || user || {}} onSaveProfile={async patch => { const { data, error } = await supabase.from('profiles').update(patch).eq('id', user?.id).select().single(); if (error) throw error; updateUser(data); await reloadProfile(); return data }} onComplete={() => commitAnswer(currentQuestion.id, 'Sim, quero divulgar')} />
+          <button type="button" onClick={() => commitAnswer(currentQuestion.id, 'Não, continuar sem telefone')} className="rounded-xl px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">{b('phoneNo')}</button>
+        </div>
+      )
       return (
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button
             type="button"
-            disabled={!guestMode && !profilePhone}
             aria-pressed={answers.contactPhoneChoice === 'Sim, quero divulgar'}
             onClick={() => commitAnswer(currentQuestion.id, 'Sim, quero divulgar')}
-            className="rounded-3xl border border-emerald-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:opacity-70"
+            className="rounded-3xl border border-emerald-200 bg-white p-5 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
           >
             <p className="text-base font-black text-slate-950">{b('phoneYes')}</p>
             <p className="mt-2 text-sm font-semibold text-slate-600">

@@ -20,14 +20,14 @@ test('uses the final Landing sequence without a generic first-creation section',
 test('keeps Snetia Space then Real Estate Banner as the first visual product blocks', () => {
   assert.match(landing, /function VirtualStagingSpotlight/)
   assert.match(landing, /function RealEstateBannerSpotlight/)
-  assert.match(landing, /ctaTo="\/criar-anuncio"/)
+  assert.match(landing, /ctaTo=\{authEntryPath\('\/cadastro', 'real_estate_banner'\)\}/)
   assert.match(landing, /VIRTUAL_STAGING_PHONE_SEQUENCES\(t\)\.map/)
 })
 
 test('uses only the approved Banner and Virtual Staging trial CTAs in the Hero', () => {
   const hero = landing.slice(landing.indexOf('function Hero()'), landing.indexOf('function PositioningStrip'))
-  assert.match(hero, /to="\/criar-anuncio"/)
-  assert.match(hero, /to="\/virtual-staging"/)
+  assert.match(hero, /authEntryPath\('\/cadastro', 'real_estate_banner'\)/)
+  assert.match(hero, /authEntryPath\('\/cadastro', 'virtual_staging'\)/)
   assert.match(hero, /landing\.trial\.banner/)
   assert.match(hero, /landing\.trial\.virtualStaging/)
   assert.doesNotMatch(hero, /href="#produtos"/)

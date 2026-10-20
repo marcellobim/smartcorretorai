@@ -4,9 +4,8 @@ import { formatSmartTokens } from '../../lib/smart-tokens'
 import { useLocale } from '../../i18n/useLocale'
 
 export default function SmartTokenEstimate({ cost, quantityLabel = '', className = '' }) {
-  const { balance, trial } = useSmartTokens()
+  const { balance } = useSmartTokens()
   const { locale, t } = useLocale()
-  if (trial) return null
 
   const normalizedCost = Math.max(0, Number(cost) || 0)
   const insufficient = balance !== null && balance < normalizedCost
