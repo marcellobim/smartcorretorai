@@ -8,6 +8,8 @@ import {
   readHeroNextRecovery,
   writeHeroNextRecovery,
 } from '../src/lib/hero-next-recovery.js'
+import enUS from '../src/i18n/messages/en-US.js'
+import ptBR from '../src/i18n/messages/pt-BR.js'
 
 const page = readFileSync(new URL('../src/pages/HeroNext.jsx', import.meta.url), 'utf8')
 const economy = readFileSync(new URL('../../supabase/functions/gerar-hero-ia/economy.ts', import.meta.url), 'utf8')
@@ -125,7 +127,7 @@ test('processing reuses generation ids and failed or transient states leave proc
   assert.match(recovery, /job\.status === 'processing' && job\.generationId/)
   assert.match(recovery, /recovered\.status === 'failed' \|\| recovered\.status === 'cancelled'/)
   assert.match(recovery, /setPhase\('recovery'\)/)
-  assert.match(recovery, /A referência foi preservada/)
+  assert.match(recovery, /processing\.referencePreserved/)
   const generationCatch = page.slice(page.indexOf('} catch (error) {', page.indexOf('const handleGenerate')), page.indexOf('\n    } finally {', page.indexOf('const handleGenerate')))
   assert.match(generationCatch, /setPhase\('recovery'\)/)
 })
@@ -138,10 +140,26 @@ test('completed result is applied before recovery is marked completed', () => {
   assert.ok(apply > -1 && phase > apply && persist > phase)
 })
 
-test('Atualizar status, Sair e Recomeçar have explicit safe behavior', () => {
-  assert.match(page, />\s*Atualizar status\s*</)
-  assert.match(page, />\s*Sair desta criação\s*</)
-  assert.match(page, />\s*Recomeçar\s*</)
+test('processing and recovery controls are localized while preserving explicit safe behavior', () => {
+  assert.equal(enUS.banner.processing.refreshStatus, 'Refresh status')
+  assert.equal(enUS.banner.processing.leaveCreation, 'Leave this creation')
+  assert.equal(enUS.banner.processing.startOver, 'Start over')
+  assert.equal(ptBR.banner.processing.refreshStatus, 'Atualizar status')
+  assert.equal(ptBR.banner.processing.leaveCreation, 'Sair desta criação')
+  assert.equal(ptBR.banner.processing.startOver, 'Recomeçar')
+  assert.deepEqual(enUS.banner.processing.statuses, {
+    completed: 'Completed', failed: 'Failed', starting: 'Starting', processing: 'Processing',
+  })
+  assert.equal(enUS.banner.processing.leaveNotice, 'Leaving this page does not cancel a generation that has already started.')
+
+  const processingPanel = page.slice(page.indexOf("{phase === 'processing'"), page.indexOf("{phase === 'recovery'"))
+  const recoveryPanel = page.slice(page.indexOf("{phase === 'recovery'"), page.indexOf("{phase === 'result'"))
+  assert.match(processingPanel, /processing\.refreshStatus/)
+  assert.match(processingPanel, /processing\.leaveCreation/)
+  assert.match(processingPanel, /processing\.startOver/)
+  assert.match(processingPanel, /processing\.statuses\.processing/)
+  assert.doesNotMatch(processingPanel, /Atualizar status|Sair desta criação|Recomeçar|Processando/)
+  assert.match(recoveryPanel, /processing\.recoverySafetyNotice/)
   assert.doesNotMatch(page, />\s*Cancelar geração\s*</)
   const leave = page.slice(page.indexOf('const leaveCurrentCreation'), page.indexOf('\n\n  const campaignPackageBuild'))
   assert.match(leave, /generationViewActiveRef\.current = false/)
