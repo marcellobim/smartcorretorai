@@ -1,4 +1,4 @@
-export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 5
+export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 6
 export const SMART_SPACE_VIDEO_WIDTH = 720
 export const SMART_SPACE_VIDEO_HEIGHT = 1280
 export const SMART_SPACE_VIDEO_FRAME_RATE = 25
@@ -20,7 +20,7 @@ export type SmartSpaceVideoScene = {
 }
 
 export type SmartSpaceVideoPlan = {
-  version: 5
+  version: 6
   action: string
   durationSeconds: number
   scenes: SmartSpaceVideoScene[]
@@ -33,6 +33,7 @@ export type SmartSpaceVideoMarketing = {
   cta: string
   professionalIdentity: string
   phone: string
+  narration: string
 }
 
 const LABELS: Record<string, string> = {
@@ -61,6 +62,7 @@ export function normalizeSmartSpaceVideoMarketing(value: unknown): SmartSpaceVid
     cta: cleanMarketingText(source.cta, 140),
     professionalIdentity: cleanMarketingText(source.professionalIdentity, 180),
     phone: cleanMarketingText(source.phone, 40),
+    narration: cleanMarketingText(source.narration, 280),
   }
 }
 
@@ -117,12 +119,18 @@ export function buildSmartSpaceConsolidatedVideoPlan(items: Array<Record<string,
       { kind: `result-${number}`, label: 'After', storagePath: finalPath },
     )
   }
+  const normalizedMarketing = normalizeSmartSpaceVideoMarketing(marketing)
+  // Older requests predate persisted delivery metadata. They still receive a
+  // truthful, product-only line rather than a silent consolidated delivery.
+  const narration = normalizedMarketing.narration || (normalizedMarketing.locale === 'en-US'
+    ? 'See how Virtual Staging transforms this space and reveals its potential.'
+    : 'Veja como o Virtual Staging transforma este ambiente e revela seu potencial.')
   return {
     version: SMART_SPACE_VIDEO_CONTRACT_VERSION,
     action: 'consolidated_transformation',
     durationSeconds: scenes.length * 2.5,
     scenes,
-    marketing: normalizeSmartSpaceVideoMarketing(marketing),
+    marketing: { ...normalizedMarketing, narration },
   }
 }
 
@@ -213,13 +221,31 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
     if (kind.includes('free_space')) return locale === 'en-US' ? 'Clear space' : 'Espaço livre'
     return locale === 'en-US' ? 'After' : 'Depois'
   }
-  plan.scenes.forEach((scene, index) => addText(`Transformation-Step-${index + 1}`, sceneLabel(scene.kind), index * sceneDuration, Math.min(1.15, sceneDuration), '9%', '3.7 vmin', true))
-  // Keep the optional caption in a safe lower area while the imagery changes.
-  // The closing card then has dedicated space for CTA, identity, and phone.
-  addText('Campaign-Caption', plan.marketing.caption, 0, closingTime, '84%', '4.2 vmin')
-  addText('Campaign-CTA', plan.marketing.cta, closingTime, closingDuration, '67%', '5.2 vmin', true)
+  // Keep the imagery as the protagonist: scenes receive only a discreet
+  // Before/After marker. The full social caption remains in the delivery UI.
+  plan.scenes.forEach((scene, index) => addText(`Transformation-Step-${index + 1}`, sceneLabel(scene.kind), index * sceneDuration, Math.min(0.9, sceneDuration), '8%', '3.1 vmin', true))
+  // The closing portion is reserved for explicitly selected CTA, identity,
+  // and authorized phone — never a long promotional caption.
+  addText('Campaign-CTA', plan.marketing.cta, closingTime, closingDuration, '67%', '4.6 vmin', true)
   addText('Professional-Identity', plan.marketing.professionalIdentity, closingTime, closingDuration, plan.marketing.phone ? '79%' : '84%', '3.7 vmin')
   addText('Professional-Phone', plan.marketing.phone, closingTime, closingDuration, '89%', '3.7 vmin')
+  // Reuse the project's existing Creatomate/OpenAI TTS source. It is limited
+  // to the consolidated delivery; the already-approved individual videos stay
+  // untouched and no music or external audio asset is introduced.
+  const narrationElements = plan.action === 'consolidated_transformation' && plan.marketing.narration
+    ? [{
+      name: 'Smart-Space-Consolidated-Narration',
+      type: 'audio',
+      track: 4,
+      time: 0,
+      duration: plan.durationSeconds,
+      source: plan.marketing.narration,
+      provider: 'openai model=tts-1 voice=nova',
+      volume: '100%',
+      audio_fade_in: 0.15,
+      audio_fade_out: 0.2,
+    }]
+    : []
 
   return {
     output_format: 'mp4',
@@ -228,7 +254,7 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
     frame_rate: SMART_SPACE_VIDEO_FRAME_RATE,
     duration: plan.durationSeconds,
     background_color: '#0f172a',
-    elements: [...elements, ...textElements],
+    elements: [...elements, ...textElements, ...narrationElements],
   }
 }
 

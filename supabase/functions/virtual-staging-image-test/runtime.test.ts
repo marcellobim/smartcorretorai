@@ -141,6 +141,34 @@ test('prepares the normal 1-5 image contract without a product-specific trial fl
   ])
 })
 
+test('preparation accepts only delivery metadata needed to recover contextual hashtags and consolidated narration', async () => {
+  let captured: Record<string, unknown> | null = null
+  const response = await handleVirtualStagingImageTest(request({
+    action: 'prepare',
+    client_request_id: requestId,
+    image_count: 2,
+    transformation_type: 'remove_furniture',
+    delivery_metadata: {
+      locale: 'en-US',
+      caption: 'A literal caption.',
+      hashtags: ['#TampaRealEstate', '#VirtualStaging', '#SNETIA'],
+      narration: 'See how Virtual Staging transforms this apartment in Tampa and reveals its potential.',
+    },
+  }), dependencies({
+    prepareEconomy: async input => {
+      captured = input.deliveryMetadata
+      return { status: 'processing' }
+    },
+  }))
+  assert.equal(response.status, 200)
+  assert.deepEqual(captured, {
+    locale: 'en-US',
+    caption: 'A literal caption.',
+    hashtags: ['#TampaRealEstate', '#VirtualStaging', '#SNETIA'],
+    narration: 'See how Virtual Staging transforms this apartment in Tampa and reveals its potential.',
+  })
+})
+
 test('exige o módulo furnish-renovate e rejeita outros módulos', async () => {
   for (const module of [undefined, 'life-in-property', 'broker-presentation']) {
     const body = { ...validBody, module }

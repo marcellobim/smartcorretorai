@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildVirtualStagingCampaignPackage } from '../src/components/campaign/buildVirtualStagingCampaignPackage.js'
+import { buildVirtualStagingCampaignPackage, buildVirtualStagingConsolidatedNarration } from '../src/components/campaign/buildVirtualStagingCampaignPackage.js'
 
 const page = readFileSync(new URL('../src/pages/VirtualStaging.jsx', import.meta.url), 'utf8')
 const pt = readFileSync(new URL('../src/i18n/messages/pt-BR.js', import.meta.url), 'utf8')
@@ -39,6 +39,18 @@ test('entrega Social preserva a legenda literal e injeta hashtags contextuais no
   assert.match(page, /virtual_staging_hashtags/)
   assert.match(page, /social_caption: \{ label: 'Instagram \/ Facebook', text: caption \}/)
   assert.match(page, /hasSocialCaptionPropertyData\(property\)/)
+  assert.match(page, /campaignHashtags=\{furnishDeliveryMetadata\.hashtags\}/)
+  assert.match(page, /hashtags: campaignHashtags/)
+  assert.match(page, /setFurnishDeliveryMetadata\(data\.request\?\.delivery_metadata/)
+})
+
+test('narração consolidada usa somente contexto estruturado e respeita BR/US', () => {
+  const us = buildVirtualStagingConsolidatedNarration({ property, language: 'en-US' })
+  const br = buildVirtualStagingConsolidatedNarration({ property: { ...property, city: 'São Paulo', state: 'SP' }, language: 'pt-BR' })
+  assert.equal(us, 'See how Virtual Staging transforms this apartment for sale in Tampa, Florida and reveals its potential.')
+  assert.equal(br, 'Veja como o Virtual Staging transforma este apartamento à venda em São Paulo, SP e revela seu potencial.')
+  assert.doesNotMatch(us, /SNETIA|Schedule|contact/i)
+  assert.doesNotMatch(br, /Agende|contato/i)
 })
 
 test('status e entrega usam o nome específico de cada módulo em BR e US', () => {
@@ -52,8 +64,15 @@ test('status e entrega usam o nome específico de cada módulo em BR e US', () =
 })
 
 test('Social prepara overlays e Portal mantém uma entrega limpa', () => {
-  assert.match(page, /const videoMarketing = \{[\s\S]*locale: draftLocale,[\s\S]*caption:[\s\S]*cta:[\s\S]*professionalIdentity:[\s\S]*phone: socialOptions\.phone && includePhone \? phone : ''/)
+  assert.match(page, /const videoMarketing = \{[\s\S]*locale: draftLocale,[\s\S]*caption:[\s\S]*cta:[\s\S]*professionalIdentity:[\s\S]*phone: socialOptions\.phone && includePhone \? phone : '',[\s\S]*hashtags: campaignHashtags,[\s\S]*narration: buildVirtualStagingConsolidatedNarration/)
   assert.match(page, /delivery_metadata: videoMarketing/)
   assert.match(page, /const isSocial = socialOptions\?\.destination === 'social'/)
   assert.match(page, /supportedNetworks=\{\['tiktok'\]\}/)
+})
+
+test('entrega nomeia o vídeo consolidado e mantém download e compartilhamento existentes', () => {
+  assert.match(page, /Complete Transformation Video/)
+  assert.match(page, /Vídeo completo da transformação/)
+  assert.match(page, /Download campaign video/)
+  assert.match(page, /<SharePublishActions media=\{\[\{ url: consolidatedVideo\.signedUrl/)
 })

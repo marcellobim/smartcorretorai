@@ -35,6 +35,30 @@ export function mergeVirtualStagingCampaignHashtags(campaignPackage, generatedHa
   }
 }
 
+// The consolidated before/after video uses a short deterministic voice-over.
+// It deliberately draws only from structured listing facts and never from a
+// user-written caption, so the audible copy cannot invent property details or
+// repeat the optional on-screen caption/CTA.
+export function buildVirtualStagingConsolidatedNarration({ property = {}, language = 'pt-BR' } = {}) {
+  const socialLanguage = language === 'en-US' ? 'en-US' : 'pt-BR'
+  const localizedType = clean(presentPropertyType(property.type, socialLanguage))
+  const type = localizedType ? `${localizedType.charAt(0).toLocaleLowerCase(socialLanguage)}${localizedType.slice(1)}` : ''
+  const rawPurpose = clean(property.purpose).toLocaleLowerCase('pt-BR')
+  const purpose = socialLanguage === 'en-US'
+    ? clean(presentPurpose(property.purpose, socialLanguage)).toLocaleLowerCase(socialLanguage)
+    : ['sale', 'venda'].includes(rawPurpose)
+      ? 'à venda'
+      : ['rent', 'rental', 'locação', 'locacao', 'aluguel'].includes(rawPurpose)
+        ? 'para locação'
+        : rawPurpose
+  const listing = [type, purpose].filter(Boolean).join(' ') || (socialLanguage === 'en-US' ? 'property' : 'imóvel')
+  const place = location(property)
+  if (socialLanguage === 'en-US') {
+    return `See how Virtual Staging transforms this ${listing}${place ? ` in ${place}` : ''} and reveals its potential.`
+  }
+  return `Veja como o Virtual Staging transforma este ${listing}${place ? ` em ${place}` : ''} e revela seu potencial.`
+}
+
 export function buildVirtualStagingCampaignPackage({ property, language, cta, phone, professionalIdentity = '', videoUrl = '', hashtags: generatedHashtags = [], journeyId = '', lifeScene = '' }) {
   const socialLanguage = language === 'en-US' ? 'en-US' : 'pt-BR'
   const text = translations[socialLanguage]

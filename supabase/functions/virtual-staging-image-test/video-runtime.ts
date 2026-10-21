@@ -173,7 +173,16 @@ async function handleSmartSpaceConsolidatedVideoAction(userId: string, input: Re
   if (!recovered) return json({ ok: false, code: 'smart_space_request_not_found' }, 404)
   if (recovered.video?.state === 'completed') return completedConsolidatedResponse(recovered.video, deps)
 
-  if (input.action === 'start_consolidated_video') {
+  // The image items settle before the request aggregate is marked completed.
+  // A first start call can therefore arrive slightly early. Keep it pending
+  // and let the normal status polling claim the exact same render once the
+  // aggregate is eligible, instead of surfacing a terminal failure.
+  const shouldStart = input.action === 'start_consolidated_video'
+    || (input.action === 'consolidated_video_status' && ['not_requested', 'failed_retryable'].includes(String(recovered.video?.state || 'not_requested')))
+  if (shouldStart) {
+    if (String(recovered.request?.status || '') !== 'completed') {
+      return json({ ok: true, pending: true, video: publicConsolidatedVideo(recovered.video) }, 202)
+    }
     const plan = buildSmartSpaceConsolidatedVideoPlan(recovered.items, recovered.request.delivery_metadata)
     if (!plan) return json({ ok: true, skipped: true, video: publicConsolidatedVideo(recovered.video) })
     const idempotencyKey = `smart-space-consolidated:${clientRequestId}:v${plan.version}`

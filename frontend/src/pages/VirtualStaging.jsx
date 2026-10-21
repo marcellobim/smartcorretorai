@@ -9,7 +9,7 @@ import SocialCaptionEditor, { countSocialCaptionCharacters } from '../components
 import SharePublishActions from '../components/share/SharePublishActions'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
-import { buildVirtualStagingCampaignPackage, mergeVirtualStagingCampaignHashtags } from '../components/campaign/buildVirtualStagingCampaignPackage'
+import { buildVirtualStagingCampaignPackage, buildVirtualStagingConsolidatedNarration, mergeVirtualStagingCampaignHashtags } from '../components/campaign/buildVirtualStagingCampaignPackage'
 import SmartCarouselCitySelect, { SmartCarouselStateSelect } from '../components/location/SmartCarouselCitySelect'
 import StudioUsLocation from '../components/location/StudioUsLocation'
 import GuidedConversation from '../components/conversation/GuidedConversation'
@@ -297,7 +297,7 @@ function FurnishRenovateResultCard({ result, publication, social, caption = '', 
   </article>
 }
 
-function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRetryMaterialization, publication, socialOptions, property, locale, t }) {
+function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRetryMaterialization, publication, socialOptions, property, campaignHashtags, locale, t }) {
   const copy = key => t(`virtualStaging.smartSpace.delivery.${key}`)
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
@@ -307,16 +307,21 @@ function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRe
   // CampaignPackage intentionally treats a user caption as literal. Supply the
   // structured property context separately so its hashtag fallback cannot
   // collapse a Virtual Staging campaign to the institutional tag alone.
-  const contextualHashtags = isSocial && socialOptions?.property && hasSocialCaptionPropertyData(property)
-    ? buildVirtualStagingCampaignPackage({
+  const persistedHashtags = Array.isArray(campaignHashtags)
+    ? campaignHashtags.filter(value => typeof value === 'string' && /^#[\p{L}\p{N}_]+$/u.test(value.trim()))
+    : []
+  const contextualHashtags = persistedHashtags.length
+    ? persistedHashtags
+    : isSocial && hasSocialCaptionPropertyData(property)
+      ? buildVirtualStagingCampaignPackage({
       property,
       language: locale,
       cta: socialOptions?.ctaValue || '',
       phone: socialOptions?.phoneValue || '',
       professionalIdentity: socialOptions?.identityValue || '',
       journeyId: FURNISH_RENOVATE_JOURNEY_ID,
-    }).aiCampaigns?.[0]?.hashtags || []
-    : []
+      }).aiCampaigns?.[0]?.hashtags || []
+      : []
 
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
@@ -325,8 +330,8 @@ function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRe
         {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">{copy('failedSome')}</p>}
         {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">{copy('loadingSome')}</p>}
         <div className="mt-6 space-y-6">
-          {consolidatedVideo?.state === 'completed' && consolidatedVideo.signedUrl && <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5" aria-label={locale === 'en-US' ? 'Campaign transformation video' : 'Vídeo consolidado da transformação'}>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{locale === 'en-US' ? 'Campaign video' : 'Vídeo de campanha'}</p>
+          {consolidatedVideo?.state === 'completed' && consolidatedVideo.signedUrl && <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5" aria-label={locale === 'en-US' ? 'Complete Transformation Video' : 'Vídeo completo da transformação'}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{locale === 'en-US' ? 'Complete Transformation Video' : 'Vídeo completo da transformação'}</p>
             <h3 className="mt-1 text-lg font-black text-emerald-950">{locale === 'en-US' ? 'All transformations in one video' : 'Todas as transformações em um vídeo'}</h3>
             <video src={consolidatedVideo.signedUrl} controls playsInline preload="metadata" className="mt-4 mx-auto max-h-[38rem] w-full rounded-2xl bg-black object-contain" />
             <a href={consolidatedVideo.signedUrl} download className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white"><Download className="h-5 w-5" />{locale === 'en-US' ? 'Download campaign video' : 'Baixar vídeo de campanha'}</a>
@@ -528,6 +533,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [message, setMessage] = useState(restoredDraftMessage)
   const [result, setResult] = useState(null)
   const [furnishResults, setFurnishResults] = useState([])
+  const [furnishDeliveryMetadata, setFurnishDeliveryMetadata] = useState({})
   const [consolidatedVideo, setConsolidatedVideo] = useState(() => normalizeSmartSpaceVideo(null))
   const [hasAttemptedFurnishGeneration, setHasAttemptedFurnishGeneration] = useState(false)
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredConversation || null)
@@ -883,6 +889,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         return item?.status === 'failed' ? { ...base, status: 'failed', error: item.failure_reason || 'generation_failed' } : base
       }))
       setFurnishResults(recoveredResults)
+      setFurnishDeliveryMetadata(data.request?.delivery_metadata && typeof data.request.delivery_metadata === 'object' ? data.request.delivery_metadata : {})
       const recoveredConsolidated = normalizeSmartSpaceVideo(data.request?.consolidated_video)
       setConsolidatedVideo(recoveredConsolidated)
       if ((data.request?.status === 'completed') && recoveredResults.some(item => item.status === 'completed')) {
@@ -981,13 +988,26 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     // This is delivery-only metadata. It is never sent to the image-edit
     // provider; the existing video renderer uses it only after the staging
     // image has been completed.
+    const campaignHashtags = useDestination === 'social' && hasSocialCaptionPropertyData(property)
+      ? buildVirtualStagingCampaignPackage({
+        property,
+        language: draftLocale,
+        cta: socialOptions.cta ? getVirtualStagingOptionLabel(cta, t) : '',
+        phone: socialOptions.phone && includePhone ? phone : '',
+        professionalIdentity: socialOptions.identity && professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : '',
+        journeyId: FURNISH_RENOVATE_JOURNEY_ID,
+      }).aiCampaigns?.[0]?.hashtags || []
+      : []
     const videoMarketing = {
       locale: draftLocale,
       caption: socialOptions.caption ? socialOptions.captionText || '' : '',
       cta: socialOptions.cta ? getVirtualStagingOptionLabel(cta, t) : '',
       professionalIdentity: socialOptions.identity && professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : '',
       phone: socialOptions.phone && includePhone ? phone : '',
+      hashtags: campaignHashtags,
+      narration: buildVirtualStagingConsolidatedNarration({ property, language: draftLocale }),
     }
+    setFurnishDeliveryMetadata(videoMarketing)
     const initialResults = orderedImages.map((image, originalIndex) => ({
       id: image.key,
       originalIndex,
@@ -1178,7 +1198,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('createFailed'), draftLocale)); void reloadProfile() }
   }
 
-  const reset = () => { sessionStorage.removeItem(activeJobKey); if (furnishRecoveryKey) sessionStorage.removeItem(furnishRecoveryKey); clearPendingSmartSpacePublication(window.sessionStorage, user?.id); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishRecoveryStartedRef.current = false; if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current); for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer); furnishVideoPollsRef.current.clear(); if (consolidatedVideoPollRef.current) clearTimeout(consolidatedVideoPollRef.current); consolidatedVideoPollRef.current = null; journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setUseDestination(''); setSocialOptions(initialSocialOptions); setPresenterReferenceDecision(null); setPresenterSpeechMode('generated'); setPresenterCustomSpeech(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); setProfessionalIdentitySelection({ enabled: null, name_source: null }); conversation.resetConversation(); setStatus('idle'); setMessage(''); setTrialAlreadyUsed(false); setResult(null); setFurnishResults([]); setConsolidatedVideo(normalizeSmartSpaceVideo(null)); setHasAttemptedFurnishGeneration(false) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); if (furnishRecoveryKey) sessionStorage.removeItem(furnishRecoveryKey); clearPendingSmartSpacePublication(window.sessionStorage, user?.id); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishRecoveryStartedRef.current = false; if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current); for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer); furnishVideoPollsRef.current.clear(); if (consolidatedVideoPollRef.current) clearTimeout(consolidatedVideoPollRef.current); consolidatedVideoPollRef.current = null; journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setUseDestination(''); setSocialOptions(initialSocialOptions); setPresenterReferenceDecision(null); setPresenterSpeechMode('generated'); setPresenterCustomSpeech(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); setProfessionalIdentitySelection({ enabled: null, name_source: null }); conversation.resetConversation(); setStatus('idle'); setMessage(''); setTrialAlreadyUsed(false); setResult(null); setFurnishResults([]); setFurnishDeliveryMetadata({}); setConsolidatedVideo(normalizeSmartSpaceVideo(null)); setHasAttemptedFurnishGeneration(false) }
   const smartSpacePublication = user?.id ? {
     enabled: true,
     loadConnection: () => getMetaConnectionStatus(supabase),
@@ -1205,7 +1225,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       propertyFacts,
       property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale: draftLocale, market: draftMarket })).join(' · '),
     ].filter(Boolean).join('\n')
-    return <FurnishRenovateDelivery results={furnishResults} consolidatedVideo={consolidatedVideo} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} property={property} socialOptions={{ ...socialOptions, destination: useDestination, propertySummary, ctaValue: cta, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
+    return <FurnishRenovateDelivery results={furnishResults} consolidatedVideo={consolidatedVideo} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} property={property} campaignHashtags={furnishDeliveryMetadata.hashtags} socialOptions={{ ...socialOptions, destination: useDestination, propertySummary, ctaValue: cta, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
   }
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'

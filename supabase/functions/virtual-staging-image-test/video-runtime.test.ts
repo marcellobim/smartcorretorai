@@ -33,7 +33,7 @@ test('as quatro ações geram sequências determinísticas de dois ou três esta
   for (const [action, stages, labels] of cases) {
     const plan = buildSmartSpaceVideoPlan(completedResult(action, [...stages]))
     assert.ok(plan)
-    assert.equal(plan.version, 5)
+    assert.equal(plan.version, 6)
     assert.deepEqual(plan.scenes.map(scene => scene.label), labels)
     assert.equal(plan.durationSeconds, labels.length === 3 ? 8 : 6)
     const script = buildSmartSpaceRenderScript(plan, plan.scenes.map((_, index) => `https://storage.test/${index}.jpg`))
@@ -58,7 +58,7 @@ test('as quatro ações geram sequências determinísticas de dois ou três esta
   }
 })
 
-test('vídeo individual mantém imagem horizontal inteira e só inclui overlays autorizados', () => {
+test('vídeo individual mantém imagem horizontal inteira, sem legenda promocional, e só inclui encerramento autorizado', () => {
   const plan = buildSmartSpaceVideoPlan(completedResult('remove_furniture', [['free_space', 'out/free.jpg']]), {
     locale: 'en-US', caption: 'Bright room, ready for a fresh start.', cta: 'Schedule a visit',
     professionalIdentity: 'Ana Silva · License #123 · FL', phone: '(813) 555-0100',
@@ -68,9 +68,9 @@ test('vídeo individual mantém imagem horizontal inteira e só inclui overlays 
   const text = script.elements.filter(element => element.type === 'text')
   assert.equal(imageLayers.filter(element => element.track === 2 && element.fit === 'contain').length, plan.scenes.length)
   assert.equal(imageLayers.filter(element => element.track === 1 && element.fit === 'cover' && element.blur === '5 vmin').length, plan.scenes.length)
-  assert.deepEqual(text.map(element => element.name), ['Transformation-Step-1', 'Transformation-Step-2', 'Campaign-Caption', 'Campaign-CTA', 'Professional-Identity', 'Professional-Phone'])
+  assert.deepEqual(text.map(element => element.name), ['Transformation-Step-1', 'Transformation-Step-2', 'Campaign-CTA', 'Professional-Identity', 'Professional-Phone'])
   assert.ok(text.every(element => element.track === 3 && element.z_index === 10))
-  assert.match(JSON.stringify(script), /Bright room, ready for a fresh start\./)
+  assert.doesNotMatch(JSON.stringify(script), /Bright room, ready for a fresh start\./)
   assert.match(JSON.stringify(script), /Schedule a visit/)
   assert.match(JSON.stringify(script), /License #123/)
   assert.match(JSON.stringify(script), /813/)
@@ -110,13 +110,48 @@ test('vídeo consolidado preserva a ordem Antes/Depois do lote e aplica somente 
   const text = script.elements.filter(element => element.type === 'text')
   assert.deepEqual(text.map(element => element.name), [
     'Transformation-Step-1', 'Transformation-Step-2', 'Transformation-Step-3', 'Transformation-Step-4', 'Transformation-Step-5', 'Transformation-Step-6',
-    'Campaign-Caption', 'Campaign-CTA', 'Professional-Identity', 'Professional-Phone',
+    'Campaign-CTA', 'Professional-Identity', 'Professional-Phone',
   ])
-  assert.equal(JSON.stringify(script).includes('audio'), false)
+  const audio = script.elements.filter(element => element.type === 'audio')
+  assert.equal(audio.length, 1)
+  assert.match(String(audio[0].source), /Veja como o Virtual Staging transforma este ambiente/i)
 })
 
-test('vídeo consolidado usa somente pares concluídos de lotes de 1, 3 e 4 imagens', () => {
-  for (const count of [1, 3, 4]) {
+test('vídeo consolidado adiciona somente a narração curta persistida, sem alterar vídeos individuais ou adicionar trilha', () => {
+  const items = [0, 1].map(item_index => ({
+    item_index,
+    status: 'completed',
+    stage_state: 'completed',
+    result: completedResult('remove_furniture', [['free_space', `out/${item_index}.jpg`]]),
+  }))
+  const plan = buildSmartSpaceConsolidatedVideoPlan(items, {
+    locale: 'en-US',
+    narration: 'See how Virtual Staging transforms this apartment in Tampa and reveals its potential.',
+  })!
+  const script = buildSmartSpaceRenderScript(plan, plan.scenes.map((_, index) => `https://storage.test/narration-${index}.jpg`))
+  const audio = script.elements.filter(element => element.type === 'audio')
+  assert.equal(audio.length, 1)
+  assert.deepEqual(audio[0], {
+    name: 'Smart-Space-Consolidated-Narration',
+    type: 'audio',
+    track: 4,
+    time: 0,
+    duration: plan.durationSeconds,
+    source: 'See how Virtual Staging transforms this apartment in Tampa and reveals its potential.',
+    provider: 'openai model=tts-1 voice=nova',
+    volume: '100%',
+    audio_fade_in: 0.15,
+    audio_fade_out: 0.2,
+  })
+  assert.equal(script.elements.some(element => String(element.name).includes('Music')), false)
+
+  const individual = buildSmartSpaceVideoPlan(completedResult('remove_furniture', [['free_space', 'out/free.jpg']]), { narration: 'Do not add this to an individual video.' })!
+  const individualScript = buildSmartSpaceRenderScript(individual, individual.scenes.map((_, index) => `https://storage.test/individual-${index}.jpg`))
+  assert.equal(individualScript.elements.some(element => element.type === 'audio'), false)
+})
+
+test('vídeo consolidado usa somente pares concluídos de lotes de 1, 2, 3 e 4 imagens', () => {
+  for (const count of [1, 2, 3, 4]) {
     const items = Array.from({ length: count }, (_, itemIndex) => ({
       item_index: itemIndex,
       status: 'completed',
@@ -240,7 +275,7 @@ test('consolidado é iniciado, persistido e recuperado sem repetir a transforma�
   let uploads = 0
   const deps: SmartSpaceVideoDependencies = {
     ...dependencies().deps,
-    recoverConsolidatedVideo: async () => ({ request: { delivery_metadata: {} }, items, video }),
+    recoverConsolidatedVideo: async () => ({ request: { status: 'completed', delivery_metadata: {} }, items, video }),
     claimConsolidatedVideo: async ({ idempotencyKey }) => {
       if (video.state !== 'not_requested') return { video, claimed: false, claimToken: null }
       video = { state: 'submitting', idempotency_key: idempotencyKey, claim_token: '44444444-4444-4444-8444-444444444444' }
@@ -263,5 +298,38 @@ test('consolidado é iniciado, persistido e recuperado sem repetir a transforma�
   assert.equal(body.video.state, 'completed')
   assert.match(body.video.signed_url, /^https:\/\//)
   assert.equal(uploads, 1)
+  assert.equal(starts, 1)
+})
+
+test('consolidado aguarda o fechamento do lote e o polling de status inicia o mesmo render uma única vez', async () => {
+  const items = [0, 1].map(item_index => ({
+    item_index,
+    status: 'completed',
+    stage_state: 'completed',
+    result: completedResult('remove_furniture', [['free_space', `out/${item_index}.jpg`]]),
+  }))
+  let requestStatus = 'processing'
+  let video: Record<string, any> = { state: 'not_requested' }
+  let starts = 0
+  const deps: SmartSpaceVideoDependencies = {
+    ...dependencies().deps,
+    recoverConsolidatedVideo: async () => ({ request: { status: requestStatus, delivery_metadata: {} }, items, video }),
+    claimConsolidatedVideo: async () => {
+      video = { state: 'submitting', claim_token: '44444444-4444-4444-8444-444444444444' }
+      return { video, claimed: true, claimToken: video.claim_token }
+    },
+    registerConsolidatedVideo: async ({ renderId }) => { video = { ...video, state: 'rendering', render_id: renderId } },
+    completeConsolidatedVideo: async () => undefined,
+    failConsolidatedVideo: async () => undefined,
+    startRender: async () => { starts += 1; return { id: 'consolidated-render-1', status: 'planned' } },
+  }
+  const early = await handleSmartSpaceVideoAction(userId, { action: 'start_consolidated_video', client_request_id: clientRequestId }, deps)
+  assert.equal(early.status, 202)
+  assert.equal((await early.json()).pending, true)
+  assert.equal(starts, 0)
+
+  requestStatus = 'completed'
+  const poll = await handleSmartSpaceVideoAction(userId, { action: 'consolidated_video_status', client_request_id: clientRequestId }, deps)
+  assert.equal(poll.status, 202)
   assert.equal(starts, 1)
 })

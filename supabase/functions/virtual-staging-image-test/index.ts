@@ -138,6 +138,14 @@ serve(withCors(async (request) => {
         cta: typeof deliveryMetadata.cta === 'string' ? deliveryMetadata.cta.trim().slice(0, 140) : '',
         professionalIdentity: typeof deliveryMetadata.professionalIdentity === 'string' ? deliveryMetadata.professionalIdentity.trim().slice(0, 180) : '',
         phone: typeof deliveryMetadata.phone === 'string' ? deliveryMetadata.phone.trim().slice(0, 40) : '',
+        // These are delivery-only, bounded values. Persisting them alongside
+        // the request keeps a refreshed delivery identical to the first view.
+        hashtags: Array.isArray(deliveryMetadata.hashtags)
+          ? [...new Set(deliveryMetadata.hashtags
+            .filter(value => typeof value === 'string' && /^#[\p{L}\p{N}_]+$/u.test(value.trim()))
+            .map(value => value.trim()))].slice(0, 15)
+          : [],
+        narration: typeof deliveryMetadata.narration === 'string' ? deliveryMetadata.narration.trim().replace(/\s+/g, ' ').slice(0, 280) : '',
       }
       const { data: requestRow, error: requestError } = await supabase
         .from('virtual_staging_image_requests')
@@ -266,7 +274,7 @@ serve(withCors(async (request) => {
       recoverConsolidatedVideo: async ({ userId, clientRequestId }) => {
         const { data: request, error: requestError } = await supabase
           .from('virtual_staging_image_requests')
-          .select('id,client_request_id,delivery_metadata')
+          .select('id,client_request_id,status,delivery_metadata')
           .eq('user_id', userId)
           .eq('client_request_id', clientRequestId)
           .maybeSingle()
