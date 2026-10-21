@@ -22,6 +22,8 @@ test('consolidated delivery permits only its committed migration artifact', () =
  assert.match(deploySource, /migrationAlreadyInProduction/)
  assert.match(deploySource, /resumeVirtualStagingConsolidatedBackend/)
  assert.match(deploySource, /Retomada backend validada/)
+ assert.match(deploySource, /if\(beforeMigrations\.pending\.length\)run\(edgeCli,\['db','push'/)
+ assert.match(deploySource, /afterMigrations\.applied\.includes\('20261022010000'\)/)
  assert.match(deploySource, /deployVirtualStagingConsolidatedDelivery[\s\S]{0,2500}\['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE\.projectRef,'--workdir',edgeStage\]/)
 })
 

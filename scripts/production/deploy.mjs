@@ -986,12 +986,17 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  if(deployVirtualStagingConsolidatedDelivery){
   const migrationPath=path.join(edgeStage,...VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION.split('/'))
   if(!existsSync(migrationPath)||!sameVirtualStagingTrialMigrationContent(readFileSync(migrationPath),readFileSync(path.join(root,...VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de entrega consolidada divergente no artefato isolado')
-  const beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root),['20261022010000'])
-  if(JSON.stringify(beforeMigrations.pending)!==JSON.stringify(['20261022010000']))throw Error('DEPLOY BLOQUEADO: migration de entrega consolidada não está isolada')
+  const migrationListArgs=['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage]
+  let beforeMigrations
+  try {beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,migrationListArgs,root),['20261022010000'])}
+  catch {
+   beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,migrationListArgs,root),[])
+   if(!beforeMigrations.applied.includes('20261022010000'))throw Error('DEPLOY BLOQUEADO: migration de entrega consolidada não está isolada')
+  }
   console.log(JSON.stringify({virtualStagingConsolidatedDeliveryMigrationValidation:{applied:beforeMigrations.applied.length,pending:beforeMigrations.pending}}))
-  run(edgeCli,['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root,true)
-  const afterMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root),[])
-  if(afterMigrations.pending.length)throw Error('DEPLOY BLOQUEADO: migration pendente após publicação da entrega consolidada')
+  if(beforeMigrations.pending.length)run(edgeCli,['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root,true)
+  const afterMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,migrationListArgs,root),[])
+  if(afterMigrations.pending.length||!afterMigrations.applied.includes('20261022010000'))throw Error('DEPLOY BLOQUEADO: migration pendente após publicação da entrega consolidada')
   console.log(JSON.stringify({virtualStagingConsolidatedDeliveryMigrationValidation:{applied:afterMigrations.applied.length,pending:afterMigrations.pending}}))
   const afterMigration=await official()
   if(afterMigration.id!==current.id)throw Error('DEPLOY BLOQUEADO: Production mudou durante a migration da entrega consolidada')
