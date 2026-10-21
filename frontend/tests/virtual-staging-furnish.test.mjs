@@ -15,6 +15,7 @@ import {
   furnishRenovateRequiresStyle,
   getFurnishRenovateCopy,
   getFurnishRenovateDestinationOptions,
+  getFurnishRenovateSelectionQuote,
   getFurnishRenovateSocialOptions,
   getFurnishRenovateTransformationLabel,
   getFurnishRenovateTransformationOptions,
@@ -86,9 +87,46 @@ test('preserves the normal 1–5 contract and 30/60 ST economy for all accounts'
   assert.equal(getSmartSpaceUnitCost('remove_and_redecorate'), 60)
   assert.equal(getSmartSpaceQuote('remove_furniture', 5), 150)
   assert.equal(getSmartSpaceQuote('remove_and_redecorate', 5), 300)
-  assert.match(page, /images\.length >= 1[\s\S]*images\.length <= FURNISH_RENOVATE_MAX_IMAGES/)
+  assert.match(page, /furnishSelectionQuote\.hasValidImageCount/)
+  assert.match(page, /furnishSelectionQuote\.hasSufficientBalance/)
+  assert.match(page, /const orderedImages = images\.slice\(\)/)
+  assert.match(page, /expected_count: orderedImages\.length/)
   assert.match(page, /Boolean\(useDestination\)/)
   assert.doesNotMatch(page, /1 to 10|1–10|1-10/)
+})
+
+test('uses the uploaded image array as the single review quote source for every supported action', () => {
+  const expectedCosts = new Map([
+    ['furnish', 30],
+    ['remove_furniture', 30],
+    ['clear_area', 30],
+    ['remove_and_redecorate', 60],
+  ])
+
+  for (const [transformationType, unitCost] of expectedCosts) {
+    for (const imageCount of [1, 3, 5]) {
+      const quote = getFurnishRenovateSelectionQuote({
+        images: Array.from({ length: imageCount }, (_, index) => ({ key: `image-${index + 1}` })),
+        transformationType,
+        balance: 400,
+      })
+      assert.deepEqual(quote, {
+        imageCount,
+        unitCost,
+        totalCost: unitCost * imageCount,
+        hasValidImageCount: true,
+        hasSufficientBalance: true,
+      })
+    }
+  }
+
+  assert.deepEqual(getFurnishRenovateSelectionQuote({ images: Array.from({ length: 5 }, () => ({})), transformationType: 'remove_and_redecorate', balance: 299 }), {
+    imageCount: 5,
+    unitCost: 60,
+    totalCost: 300,
+    hasValidImageCount: true,
+    hasSufficientBalance: false,
+  })
 })
 
 test('keeps portal delivery clean and exposes social publication only after generation', () => {
@@ -128,6 +166,10 @@ test('keeps final review, Back/Edit/reset, and historical recovery compatible', 
   assert.equal(getVirtualStagingReviewEditNext({ originQuestionId: 'social_options', questionId: 'social_options', answerId: 'yes', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'social_property_details')
   assert.equal(getVirtualStagingReviewEditNext({ originQuestionId: 'social_options', questionId: 'social_caption_decision', answerId: 'no', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'social_cta_decision')
   assert.match(page, /isRecoverableFurnishRenovateTransformation\(restoredJourneyDraft\.transformationType\)/)
+  assert.match(page, /activeQuestionId:\s*mustReselectRestoredFurnishImages[\s\S]*?\? 'images'/)
+  assert.match(page, /furnishSelectionQuote\.imageCount/)
+  assert.match(page, /furnishSelectionQuote\.totalCost/)
+  assert.match(page, /furnishSelectionQuote\.hasSufficientBalance/)
   assert.match(page, /setUseDestination\(''\); setSocialOptions\(initialSocialOptions\)/)
   assert.match(page, /back: 'Back and edit'.*restart: 'Restart'/)
   assert.match(page, /back: 'Voltar e corrigir'.*restart: 'Recomeçar'/)

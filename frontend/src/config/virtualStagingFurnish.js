@@ -194,6 +194,16 @@ export function getSmartSpaceQuote(value, imageCount) {
   return getSmartSpaceUnitCost(value) * Math.max(0, Number(imageCount) || 0)
 }
 
+export function getFurnishRenovateSelectionQuote({ images = [], transformationType = '', balance = null } = {}) {
+  const imageCount = Array.isArray(images) ? images.length : 0
+  const unitCost = getSmartSpaceUnitCost(transformationType)
+  const totalCost = getSmartSpaceQuote(transformationType, imageCount)
+  const hasValidImageCount = imageCount >= 1 && imageCount <= FURNISH_RENOVATE_MAX_IMAGES
+  const hasSufficientBalance = balance === null || balance >= totalCost
+
+  return Object.freeze({ imageCount, unitCost, totalCost, hasValidImageCount, hasSufficientBalance })
+}
+
 export function buildFurnishRenovateReviewItems({ imagesCount, transformationType, decorationStyle, useDestination = '', socialOptions = {}, locale = 'pt-BR' }) {
   const isEnglish = locale === 'en-US'
   return [
