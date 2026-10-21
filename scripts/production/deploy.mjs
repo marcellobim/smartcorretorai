@@ -839,7 +839,12 @@ else {
  if(deployVirtualStagingConsolidatedDelivery){
   if(JSON.stringify(selectedFunctions)!==JSON.stringify(VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_FUNCTIONS))throw Error('DEPLOY BLOQUEADO: a entrega consolidada do Virtual Staging só pode publicar virtual-staging-image-test')
   const migrations=git('diff','--name-only',current.sha,sha,'--','supabase/migrations').split('\n').filter(Boolean)
-  if(JSON.stringify(migrations)!==JSON.stringify([VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION]))throw Error('DEPLOY BLOQUEADO: a entrega consolidada do Virtual Staging só pode publicar a migration aprovada')
+  // A prior candidate from this exact release can have reached the frontend
+  // alias before its database step. Resume only when Production already has
+  // the byte-identical approved migration and the remote validation below
+  // still reports that single migration as pending.
+  const migrationAlreadyInProduction=migrations.length===0&&git('rev-parse',current.sha+':'+VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION)===git('rev-parse',sha+':'+VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION)
+  if(JSON.stringify(migrations)!==JSON.stringify([VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION])&&!migrationAlreadyInProduction)throw Error('DEPLOY BLOQUEADO: a entrega consolidada do Virtual Staging só pode publicar a migration aprovada')
  }
 }
 smoke(root)
@@ -909,7 +914,10 @@ if(deployBannerRecovery){
  ;({url,info,fresh,candidateSha}=candidate)
  console.log(candidate.reused?'Candidato Vercel explícito validado e reutilizado; nenhum novo deployment foi criado.':'Candidato Vercel criado e confirmado READY.')
 } else {
- const output=vc(['deploy','--prod','--skip-domain','--yes','--build-env','PRODUCTION_TARGET='+target.name,'--meta','githubCommitSha='+sha],stage)
+ // A candidate must remain outside the production alias until its proof,
+ // scoped migrations and Edge release have all passed. Promotion is explicit
+ // at the end of this workflow.
+ const output=vc(['deploy','--skip-domain','--yes','--build-env','PRODUCTION_TARGET='+target.name,'--meta','githubCommitSha='+sha],stage)
  const match=output.match(/https:\/\/[a-z0-9-]+\.vercel\.app/g)
  if(!match)throw Error('Deployment não identificado; domínio oficial não alterado')
  url=match.at(-1)
