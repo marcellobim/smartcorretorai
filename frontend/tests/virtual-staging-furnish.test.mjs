@@ -23,6 +23,7 @@ import {
   isAvailableFurnishRenovateTransformation,
   VIRTUAL_STAGING_CHAT_INTRO,
 } from '../src/config/virtualStagingFurnish.js'
+import { VIRTUAL_STAGING_MAX_IMAGES } from '../src/config/virtualStaging.js'
 import { getVirtualStagingJourney } from '../src/config/virtualStagingJourneys.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -93,6 +94,7 @@ test('offers only Aconchegante and Contemporâneo as explained single-choice sty
 
 test('accepts one to five ordered images and prevents advancing without one', () => {
   assert.equal(FURNISH_RENOVATE_MAX_IMAGES, 5)
+  assert.equal(FURNISH_RENOVATE_MAX_IMAGES, VIRTUAL_STAGING_MAX_IMAGES)
   assert.equal(canAddFurnishRenovateImages(0, 0), true)
   assert.equal(canAddFurnishRenovateImages(0, 1), true)
   assert.equal(canAddFurnishRenovateImages(4, 1), true)
@@ -232,7 +234,10 @@ test('persiste somente identificadores e caminhos para recovery idempotente do S
 })
 
 test('uses market-localized copy with the current Virtual Staging module selector', () => {
+  const br = getFurnishRenovateCopy('pt-BR')
   const en = getFurnishRenovateCopy('en-US')
+  assert.equal(br.uploadQuestion, 'Envie as fotos do imóvel')
+  assert.equal(br.uploadDescription, 'Adicione de 1 a 5 fotos. Cada imagem será analisada e transformada individualmente.')
   assert.equal(en.uploadQuestion, 'Upload property photos')
   assert.equal(en.uploadDescription, 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.')
   assert.equal(getFurnishRenovateTransformationLabel('remove_and_redecorate', 'en-US'), 'Create a completely new design')

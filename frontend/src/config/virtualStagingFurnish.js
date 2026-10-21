@@ -1,7 +1,9 @@
-import { VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from './virtualStaging.js'
+import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_DESCRIPTOR, VIRTUAL_STAGING_PRODUCT_NAME } from './virtualStaging.js'
 
 export const FURNISH_RENOVATE_JOURNEY_ID = 'furnish-renovate'
-export const FURNISH_RENOVATE_MAX_IMAGES = 5
+// Virtual Staging always uses the product-wide 1–5 image contract. It is not
+// a guest/trial-specific limit and must stay aligned with the normal product.
+export const FURNISH_RENOVATE_MAX_IMAGES = VIRTUAL_STAGING_MAX_IMAGES
 
 export const VIRTUAL_STAGING_CHAT_INTRO = Object.freeze({
   title: VIRTUAL_STAGING_PRODUCT_NAME,

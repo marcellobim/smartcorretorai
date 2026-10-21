@@ -7,6 +7,7 @@ import {
   VIRTUAL_STAGING_DECORATION_STYLES,
   VIRTUAL_STAGING_IMAGE_MODEL,
   VIRTUAL_STAGING_IMAGE_QUALITY,
+  VIRTUAL_STAGING_MAX_IMAGES,
   VIRTUAL_STAGING_OUTPUT_FORMAT,
   VIRTUAL_STAGING_TRANSFORMATION_TYPES,
 } from './contract.ts'
@@ -117,14 +118,27 @@ test('rejeita usuário não autenticado sem baixar arquivo ou chamar OpenAI', as
 })
 
 test('prepares the normal 1-5 image contract without a product-specific trial flag', async () => {
-  const preparedCounts: number[] = []
+  const preparedRequests: Array<{ userId: string; imageCount: number }> = []
   const common = { action: 'prepare', client_request_id: requestId, image_count: 1, transformation_type: 'furnish', decoration_style: 'cozy' }
-  const capture = () => dependencies({ prepareEconomy: async ({ imageCount }) => { preparedCounts.push(imageCount); return { status: 'processing' } } })
-  assert.equal((await handleVirtualStagingImageTest(request(common), capture())).status, 200)
-  assert.equal((await handleVirtualStagingImageTest(request({ ...common, image_count: 5 }), capture())).status, 200)
+  const capture = (accountId = userId) => dependencies({
+    authenticate: async () => ({ id: accountId }),
+    prepareEconomy: async ({ userId, imageCount }) => {
+      preparedRequests.push({ userId, imageCount })
+      return { status: 'processing' }
+    },
+  })
+  for (const accountId of ['free-account-with-sufficient-balance', 'paid-account']) {
+    for (const imageCount of [1, 3, 5]) {
+      assert.equal((await handleVirtualStagingImageTest(request({ ...common, image_count: imageCount }), capture(accountId))).status, 200)
+    }
+  }
   const legacy = await json(await handleVirtualStagingImageTest(request({ ...common, landing_trial: true }), capture()))
   assert.equal(legacy.code, 'invalid_economic_request')
-  assert.deepEqual(preparedCounts, [1, 5])
+  assert.equal(VIRTUAL_STAGING_MAX_IMAGES, 5)
+  assert.deepEqual(preparedRequests, [
+    ...[1, 3, 5].map(imageCount => ({ userId: 'free-account-with-sufficient-balance', imageCount })),
+    ...[1, 3, 5].map(imageCount => ({ userId: 'paid-account', imageCount })),
+  ])
 })
 
 test('exige o módulo furnish-renovate e rejeita outros módulos', async () => {
@@ -319,7 +333,7 @@ test('rejeita caminho ausente, caminho de outro usuário e formato inválido', a
   }
 })
 
-test('aceita somente uma imagem e rejeita contratos de lote mesmo com um item', async () => {
+test('accepts one image per item and rejects unsupported bulk payloads', async () => {
   for (const body of [
     { ...validBody, input_path: [validPath] },
     { ...validBody, input_path: undefined, input_paths: [validPath] },

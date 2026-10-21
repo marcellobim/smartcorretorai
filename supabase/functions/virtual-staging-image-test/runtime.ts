@@ -10,6 +10,7 @@ import {
   VIRTUAL_STAGING_BACKGROUND,
   VIRTUAL_STAGING_IMAGE_MODEL,
   VIRTUAL_STAGING_IMAGE_QUALITY,
+  VIRTUAL_STAGING_MAX_IMAGES,
   VIRTUAL_STAGING_OUTPUT_FORMAT,
   VIRTUAL_STAGING_OUTPUT_MIME,
   VIRTUAL_STAGING_TRANSFORMATION_TYPES,
@@ -155,7 +156,7 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
       const decorationStyle = input.decoration_style === undefined || input.decoration_style === null ? null : String(input.decoration_style)
       const requiresStyle = virtualStagingRequiresStyle(transformationType)
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
-        || !Number.isInteger(imageCount) || imageCount < 1 || imageCount > 5
+        || !Number.isInteger(imageCount) || imageCount < 1 || imageCount > VIRTUAL_STAGING_MAX_IMAGES
         || !VIRTUAL_STAGING_TRANSFORMATION_TYPES.includes(transformationType as typeof VIRTUAL_STAGING_TRANSFORMATION_TYPES[number])
         || (requiresStyle && !VIRTUAL_STAGING_DECORATION_STYLES.includes(decorationStyle as typeof VIRTUAL_STAGING_DECORATION_STYLES[number]))
         || (!requiresStyle && decorationStyle !== null)
@@ -210,7 +211,7 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
       const clientRequestId = String(input.client_request_id ?? '')
       const itemIndex = Number(input.item_index)
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
-        || !Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex > 4
+        || !Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= VIRTUAL_STAGING_MAX_IMAGES
         || Object.keys(input).some(key => !['action', 'client_request_id', 'item_index', 'reason'].includes(key))) {
         throw new VirtualStagingTestError('invalid_economic_request', 400, 'Não foi possível finalizar esta imagem.')
       }
@@ -230,7 +231,7 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
       itemIndex = Number(rawRecord.item_index)
       inputPath = String(rawRecord.input_path ?? '')
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
-        || !Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex > 4
+        || !Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= VIRTUAL_STAGING_MAX_IMAGES
         || Object.keys(rawRecord).some(key => !['action', 'client_request_id', 'item_index', 'input_path'].includes(key))) {
         throw new VirtualStagingTestError('invalid_resume_request', 400, 'Não foi possível retomar esta transformação.')
       }
