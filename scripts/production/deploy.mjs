@@ -14,6 +14,7 @@ import {
  VIRTUAL_STAGING_TRIAL_MIGRATION,
  FREE_ACCOUNT_400_ST_FUNCTIONS,
  FREE_ACCOUNT_400_ST_MIGRATION,
+ VIRTUAL_STAGING_IMAGE_LIMIT_FUNCTIONS,
  adminApiVersion,
  tiktokContentPostingVersion,
  bannerFunctionVersion,
@@ -742,7 +743,8 @@ const deployTextCampaignHotfix=mode==='--text-campaign-hotfix'
 const deployAiStudioCommercialHotfix=mode==='--ai-studio-commercial-hotfix'
 const deployVirtualStagingTrial=mode==='--virtual-staging-trial'
 const deployFreeAccount400=mode==='--free-account-400-st'
- if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix||deployVirtualStagingTrial||deployFreeAccount400))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
+const deployVirtualStagingImageLimitHotfix=mode==='--virtual-staging-image-limit-hotfix'
+ if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix||deployVirtualStagingTrial||deployFreeAccount400||deployVirtualStagingImageLimitHotfix))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
  if(deployProfessionalIdentity&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: lote profissional pertence somente ao target snetia')
  if(deployRealEstateVideoLocalization&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: localização de Real Estate Video pertence somente ao target snetia')
@@ -751,6 +753,7 @@ const deployFreeAccount400=mode==='--free-account-400-st'
  if(deployAiStudioCommercialHotfix&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: hotfix do Commercial Real Estate pertence somente ao target snetia')
  if(deployVirtualStagingTrial&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: trial de Virtual Staging pertence somente ao target snetia')
  if(deployFreeAccount400&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: saldo gratuito de 400 ST pertence somente ao target snetia')
+ if(deployVirtualStagingImageLimitHotfix&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: hotfix de limite do Virtual Staging pertence somente ao target snetia')
 const selectedFunctions=edgeScope(args)
 const sha=git('rev-parse','HEAD')
 const current=candidateOnly?{sha,id:null,bootstrap:true}:await official()
@@ -789,6 +792,11 @@ const previousFreeAccount400Version=deployFreeAccount400?(()=>{
  if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version))throw Error('DEPLOY BLOQUEADO: virtual-staging-image-test inativa ou sem versão')
  return fn.version
 })():null
+const previousVirtualStagingImageLimitVersion=deployVirtualStagingImageLimitHotfix?(()=>{
+ const fn=functionsList().find(item=>item?.slug==='virtual-staging-image-test')
+ if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version))throw Error('DEPLOY BLOQUEADO: virtual-staging-image-test inativa ou sem versão')
+ return fn.version
+})():null
 if(deployAdminApi&&previousAdminVersion!==Number(process.env.ADMIN_API_EXPECTED_VERSION))throw Error('DEPLOY BLOQUEADO: versão da admin-api difere do backup validado')
 let bannerRuntimeClosure=null,bannerConfigBlob=null
 if(deployBannerRecovery){
@@ -813,6 +821,11 @@ else {
   if(JSON.stringify(selectedFunctions)!==JSON.stringify(FREE_ACCOUNT_400_ST_FUNCTIONS))throw Error('DEPLOY BLOQUEADO: o saldo gratuito de 400 ST só pode publicar virtual-staging-image-test')
   const migrations=git('diff','--name-only',current.sha,sha,'--','supabase/migrations').split('\n').filter(Boolean)
   if(JSON.stringify(migrations)!==JSON.stringify([FREE_ACCOUNT_400_ST_MIGRATION]))throw Error('DEPLOY BLOQUEADO: o saldo gratuito de 400 ST só pode publicar a migration aprovada')
+ }
+ if(deployVirtualStagingImageLimitHotfix){
+  if(JSON.stringify(selectedFunctions)!==JSON.stringify(VIRTUAL_STAGING_IMAGE_LIMIT_FUNCTIONS))throw Error('DEPLOY BLOQUEADO: o hotfix de limite do Virtual Staging só pode publicar virtual-staging-image-test')
+  const migrations=git('diff','--name-only',current.sha,sha,'--','supabase/migrations').split('\n').filter(Boolean)
+  if(migrations.length)throw Error('DEPLOY BLOQUEADO: o hotfix de limite do Virtual Staging não permite migrations')
  }
 }
 smoke(root)
@@ -897,7 +910,7 @@ if(deployBannerRecovery){
  }
 }
 
-if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix||deployVirtualStagingTrial||deployFreeAccount400){
+if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||deployProfessionalIdentity||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix||deployVirtualStagingTrial||deployFreeAccount400||deployVirtualStagingImageLimitHotfix){
  const edgeStage=stage+'-edge',edgeZip=edgeStage+'.zip';mkdirSync(edgeStage,{recursive:true})
  // gerar-hero-ia shares the Banner publication fallback with the campaign
  // release. Include its tracked non-Supabase runtime closure when this
@@ -942,7 +955,7 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  }
  if(deployAdminApi&&adminVersion()!==previousAdminVersion)throw Error('DEPLOY BLOQUEADO: admin-api mudou durante o build')
  if(deployBannerRecovery&&bannerVersion()!==previousBannerVersion)throw Error('DEPLOY BLOQUEADO: gerar-hero-ia mudou durante o build')
- if(deployVirtualStagingTrial&&functionsList().find(item=>item?.slug==='virtual-staging-image-test')?.version!==previousVirtualStagingTrialVersion)throw Error('DEPLOY BLOQUEADO: virtual-staging-image-test mudou durante o build')
+ if((deployVirtualStagingTrial||deployVirtualStagingImageLimitHotfix)&&functionsList().find(item=>item?.slug==='virtual-staging-image-test')?.version!==(deployVirtualStagingTrial?previousVirtualStagingTrialVersion:previousVirtualStagingImageLimitVersion))throw Error('DEPLOY BLOQUEADO: virtual-staging-image-test mudou durante o build')
  const deployArgs=['functions','deploy',...selectedFunctions,'--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--use-api','--workdir',edgeStage]
  if(deployBannerRecovery)deployArgs.push('--no-verify-jwt')
  run(edgeCli,deployArgs,root,true)
@@ -981,6 +994,11 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
   const fn=functionsList().find(item=>item?.slug==='virtual-staging-image-test')
   if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version)||fn.version<=previousFreeAccount400Version)throw Error('DEPLOY BLOQUEADO: versão de virtual-staging-image-test não avançou')
   console.log(JSON.stringify({mode:'free-account-400-st',previousVirtualStagingImageTestVersion:previousFreeAccount400Version,newVirtualStagingImageTestVersion:fn.version,migration:FREE_ACCOUNT_400_ST_MIGRATION}))
+ }
+ if(deployVirtualStagingImageLimitHotfix){
+  const fn=functionsList().find(item=>item?.slug==='virtual-staging-image-test')
+  if(!fn||fn.status!=='ACTIVE'||!Number.isSafeInteger(fn.version)||fn.version<=previousVirtualStagingImageLimitVersion)throw Error('DEPLOY BLOQUEADO: versão de virtual-staging-image-test não avançou')
+  console.log(JSON.stringify({mode:'virtual-staging-image-limit-hotfix',previousVirtualStagingImageTestVersion:previousVirtualStagingImageLimitVersion,newVirtualStagingImageTestVersion:fn.version,migrations:'none'}))
  }
  if(deployAdminApi){
   const version=adminVersion()
