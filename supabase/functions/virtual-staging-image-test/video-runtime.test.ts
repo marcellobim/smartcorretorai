@@ -42,33 +42,106 @@ test('as quatro ações geram sequências determinísticas de dois ou três esta
     assert.equal(script.output_format, 'mp4')
     const images = script.elements.filter(element => element.type === 'image')
     const textElements = script.elements.filter(element => element.type === 'text')
-    assert.equal(images.length, plan.scenes.length)
-    assert.equal(images.every(element => element.track === 1 && element.fit === 'contain' && element.x === '50%' && element.y === '50%' && element.width === '100%' && element.height === '100%'), true)
-    assert.equal(images.every(element => !('blur_radius' in element) && !('blur_mode' in element) && !('color_overlay' in element) && !('border_radius' in element) && !('shadow_color' in element) && !('shadow_blur' in element) && !('shadow_y' in element)), true)
-    assert.equal(textElements.length, 0)
-    assert.deepEqual(images.map(element => element.time), plan.scenes.map((_, index) => index * (plan.durationSeconds / plan.scenes.length)))
+    const foreground = images.filter(element => element.track === 2)
+    const backdrop = images.filter(element => element.track === 1)
+    assert.equal(foreground.length, plan.scenes.length)
+    assert.equal(backdrop.length, plan.scenes.length)
+    assert.equal(foreground.every(element => element.fit === 'contain' && element.x === '50%' && element.y === '50%' && element.width === '100%' && element.height === '100%'), true)
+    assert.equal(backdrop.every(element => element.fit === 'cover' && element.width === '110%' && element.height === '110%' && element.blur === '5 vmin' && element.opacity === '72%'), true)
+    assert.equal(backdrop.every((element, index) => element.source === foreground[index].source), true)
+    assert.equal(textElements.filter(element => String(element.name).startsWith('Transformation-Step-')).length, plan.scenes.length)
+    assert.deepEqual(foreground.map(element => element.time), plan.scenes.map((_, index) => index * (plan.durationSeconds / plan.scenes.length)))
     assert.equal(JSON.stringify(script).includes('contain'), true)
     assert.equal(JSON.stringify(script).includes('SMART SPACE'), false)
-    assert.equal(labels.some(label => JSON.stringify(script).includes(label)), false)
+    assert.equal(JSON.stringify(script).includes('SNETIA'), false)
     assert.equal(JSON.stringify(script).includes('audio'), false)
   }
+})
+
+test('vídeo individual mantém imagem horizontal inteira e só inclui overlays autorizados', () => {
+  const plan = buildSmartSpaceVideoPlan(completedResult('remove_furniture', [['free_space', 'out/free.jpg']]), {
+    locale: 'en-US', caption: 'Bright room, ready for a fresh start.', cta: 'Schedule a visit',
+    professionalIdentity: 'Ana Silva · License #123 · FL', phone: '(813) 555-0100',
+  })!
+  const script = buildSmartSpaceRenderScript(plan, plan.scenes.map((_, index) => `https://storage.test/horizontal-${index}.jpg`))
+  const imageLayers = script.elements.filter(element => element.type === 'image')
+  const text = script.elements.filter(element => element.type === 'text')
+  assert.equal(imageLayers.filter(element => element.track === 2 && element.fit === 'contain').length, plan.scenes.length)
+  assert.equal(imageLayers.filter(element => element.track === 1 && element.fit === 'cover' && element.blur === '5 vmin').length, plan.scenes.length)
+  assert.deepEqual(text.map(element => element.name), ['Transformation-Step-1', 'Transformation-Step-2', 'Campaign-Caption', 'Campaign-CTA', 'Professional-Identity', 'Professional-Phone'])
+  assert.ok(text.every(element => element.track === 3 && element.z_index === 10))
+  assert.match(JSON.stringify(script), /Bright room, ready for a fresh start\./)
+  assert.match(JSON.stringify(script), /Schedule a visit/)
+  assert.match(JSON.stringify(script), /License #123/)
+  assert.match(JSON.stringify(script), /813/)
+  assert.match(JSON.stringify(script), /Before/)
+  assert.match(JSON.stringify(script), /Clear space/)
+
+  const noMarketingPlan = buildSmartSpaceVideoPlan(completedResult('furnish', [['furnish', 'out/furnished.jpg']]))!
+  const noMarketing = buildSmartSpaceRenderScript(noMarketingPlan, noMarketingPlan.scenes.map((_, index) => `https://storage.test/no-marketing-${index}.jpg`))
+  const noMarketingNames = noMarketing.elements.filter(element => element.type === 'text').map(element => element.name)
+  assert.deepEqual(noMarketingNames, ['Transformation-Step-1', 'Transformation-Step-2'])
+
+  const identityWithoutPhone = buildSmartSpaceVideoPlan(completedResult('furnish', [['furnish', 'out/furnished.jpg']]), { professionalIdentity: 'Ana Silva · CRECI-F 123/SP' })!
+  const identityWithoutPhoneScript = buildSmartSpaceRenderScript(identityWithoutPhone, identityWithoutPhone.scenes.map((_, index) => `https://storage.test/identity-${index}.jpg`))
+  assert.equal(identityWithoutPhoneScript.elements.some(element => element.name === 'Professional-Identity'), true)
+  assert.equal(identityWithoutPhoneScript.elements.some(element => element.name === 'Professional-Phone'), false)
+
+  const brPlan = buildSmartSpaceVideoPlan(completedResult('clear_area', [['clear_area', 'out/clear.jpg']]), { locale: 'pt-BR' })!
+  const brScript = buildSmartSpaceRenderScript(brPlan, brPlan.scenes.map((_, index) => `https://storage.test/br-${index}.jpg`))
+  assert.match(JSON.stringify(brScript), /Antes/)
+  assert.match(JSON.stringify(brScript), /Depois/)
 })
 
 test('vídeo consolidado preserva a ordem Antes/Depois do lote e aplica somente os overlays escolhidos', () => {
   const items = [0, 1, 2].map(itemIndex => ({
     item_index: itemIndex,
+    status: 'completed',
+    stage_state: 'completed',
     result: completedResult('remove_furniture', [['free_space', `out/${itemIndex}-free.jpg`]]),
   }))
   const plan = buildSmartSpaceConsolidatedVideoPlan(items, {
-    caption: 'Veja esta transformação.', cta: 'Agende uma visita', professionalIdentity: 'Ana Silva · CRECI 123',
+    locale: 'pt-BR', caption: 'Veja esta transformação.', cta: 'Agende uma visita', professionalIdentity: 'Ana Silva · CRECI 123', phone: '(11) 99999-9999',
   })!
   assert.equal(plan.scenes.length, 6)
   assert.deepEqual(plan.scenes.map(scene => scene.label), ['Before', 'After', 'Before', 'After', 'Before', 'After'])
   assert.equal(plan.durationSeconds, 15)
   const script = buildSmartSpaceRenderScript(plan, plan.scenes.map((_, index) => `https://storage.test/${index}.jpg`))
   const text = script.elements.filter(element => element.type === 'text')
-  assert.deepEqual(text.map(element => element.name), ['Campaign-Caption', 'Campaign-CTA', 'Professional-Identity'])
+  assert.deepEqual(text.map(element => element.name), [
+    'Transformation-Step-1', 'Transformation-Step-2', 'Transformation-Step-3', 'Transformation-Step-4', 'Transformation-Step-5', 'Transformation-Step-6',
+    'Campaign-Caption', 'Campaign-CTA', 'Professional-Identity', 'Professional-Phone',
+  ])
   assert.equal(JSON.stringify(script).includes('audio'), false)
+})
+
+test('vídeo consolidado usa somente pares concluídos de lotes de 1, 3 e 4 imagens', () => {
+  for (const count of [1, 3, 4]) {
+    const items = Array.from({ length: count }, (_, itemIndex) => ({
+      item_index: itemIndex,
+      status: 'completed',
+      stage_state: 'completed',
+      result: completedResult('remove_furniture', [['free_space', `out/${count}-${itemIndex}.jpg`]]),
+    }))
+    const plan = buildSmartSpaceConsolidatedVideoPlan(items)
+    assert.ok(plan)
+    assert.equal(plan.scenes.length, count * 2)
+    assert.deepEqual(plan.scenes.filter((_, index) => index % 2 === 0).map(scene => scene.storagePath), items.map(item => item.result.input_path))
+  }
+
+  const partialBatch = [
+    { item_index: 0, status: 'completed', stage_state: 'completed', result: completedResult('remove_furniture', [['free_space', 'out/0.jpg']]) },
+    { item_index: 1, status: 'failed', stage_state: 'failed', result: {} },
+    { item_index: 2, status: 'completed', stage_state: 'completed', result: completedResult('remove_furniture', [['free_space', 'out/2.jpg']]) },
+    { item_index: 3, status: 'processing', stage_state: 'partial', result: { delivery_status: 'partial' } },
+  ]
+  const partialPlan = buildSmartSpaceConsolidatedVideoPlan(partialBatch)
+  assert.ok(partialPlan)
+  assert.equal(partialPlan.scenes.length, 4)
+  assert.deepEqual(partialPlan.scenes.map(scene => scene.storagePath), [
+    `${userId}/virtual-staging-images/inputs/${clientRequestId}/01.jpg`, 'out/0.jpg',
+    `${userId}/virtual-staging-images/inputs/${clientRequestId}/01.jpg`, 'out/2.jpg',
+  ])
 })
 
 test('render 720x1280 curto custa dois créditos e não altera preço de imagem', () => {
@@ -153,4 +226,42 @@ test('resultado parcial preserva Espaço livre e não tenta produzir vídeo comp
   const body = await response.json()
   assert.equal(body.skipped, true)
   assert.equal(state.starts(), 0)
+})
+
+test('consolidado é iniciado, persistido e recuperado sem repetir a transformação de imagens', async () => {
+  const items = [0, 1, 2].map(item_index => ({
+    item_index,
+    status: 'completed',
+    stage_state: 'completed',
+    result: completedResult('remove_furniture', [['free_space', `out/${item_index}.jpg`]]),
+  }))
+  let video: Record<string, any> = { state: 'not_requested' }
+  let starts = 0
+  let uploads = 0
+  const deps: SmartSpaceVideoDependencies = {
+    ...dependencies().deps,
+    recoverConsolidatedVideo: async () => ({ request: { delivery_metadata: {} }, items, video }),
+    claimConsolidatedVideo: async ({ idempotencyKey }) => {
+      if (video.state !== 'not_requested') return { video, claimed: false, claimToken: null }
+      video = { state: 'submitting', idempotency_key: idempotencyKey, claim_token: '44444444-4444-4444-8444-444444444444' }
+      return { video, claimed: true, claimToken: video.claim_token }
+    },
+    registerConsolidatedVideo: async ({ renderId }) => { video = { ...video, state: 'rendering', render_id: renderId } },
+    completeConsolidatedVideo: async ({ outputPath }) => { video = { ...video, state: 'completed', output_path: outputPath, claim_token: null } },
+    failConsolidatedVideo: async () => undefined,
+    startRender: async () => { starts += 1; return { id: 'consolidated-render-1', status: 'planned' } },
+    getRender: async () => ({ id: 'consolidated-render-1', status: 'succeeded', url: 'https://renderer.test/consolidated.mp4' }),
+    uploadVideo: async () => { uploads += 1 },
+    signVideo: async () => 'https://storage.test/consolidated.mp4',
+  }
+  const start = await handleSmartSpaceVideoAction(userId, { action: 'start_consolidated_video', client_request_id: clientRequestId }, deps)
+  assert.equal(start.status, 202)
+  assert.equal(starts, 1)
+  const recovery = await handleSmartSpaceVideoAction(userId, { action: 'consolidated_video_status', client_request_id: clientRequestId }, deps)
+  const body = await recovery.json()
+  assert.equal(recovery.status, 200)
+  assert.equal(body.video.state, 'completed')
+  assert.match(body.video.signed_url, /^https:\/\//)
+  assert.equal(uploads, 1)
+  assert.equal(starts, 1)
 })

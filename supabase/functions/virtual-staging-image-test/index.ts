@@ -133,9 +133,11 @@ serve(withCors(async (request) => {
       if (error) throw new Error(error.message)
       const prepared = Array.isArray(data) ? data[0] : data
       const normalizedDeliveryMetadata = {
+        locale: deliveryMetadata.locale === 'en-US' ? 'en-US' : 'pt-BR',
         caption: typeof deliveryMetadata.caption === 'string' ? deliveryMetadata.caption.trim().slice(0, 480) : '',
         cta: typeof deliveryMetadata.cta === 'string' ? deliveryMetadata.cta.trim().slice(0, 140) : '',
         professionalIdentity: typeof deliveryMetadata.professionalIdentity === 'string' ? deliveryMetadata.professionalIdentity.trim().slice(0, 180) : '',
+        phone: typeof deliveryMetadata.phone === 'string' ? deliveryMetadata.phone.trim().slice(0, 40) : '',
       }
       const { data: requestRow, error: requestError } = await supabase
         .from('virtual_staging_image_requests')

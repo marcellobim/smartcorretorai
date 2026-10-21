@@ -26,6 +26,21 @@ test('Virtual Staging resolve hashtags úteis por mercado sem herdar branding le
   assert.equal(brTags.some(tag => /SmartCorretorAI/i.test(tag)), false)
 })
 
+test('entrega Social preserva a legenda literal e injeta hashtags contextuais no pacote compartilhado', () => {
+  const usPackage = buildVirtualStagingCampaignPackage({ property, language: 'en-US', journeyId: 'furnish-renovate' })
+  const brPackage = buildVirtualStagingCampaignPackage({ property: { ...property, type: 'Apartamento', city: 'São Paulo', state: 'SP' }, language: 'pt-BR', journeyId: 'furnish-renovate' })
+  for (const campaign of [usPackage, brPackage]) {
+    const hashtags = campaign.aiCampaigns[0].hashtags.join(' ')
+    assert.match(hashtags, /#SNETIA/)
+    assert.match(hashtags, /#VirtualStaging/)
+    assert.notEqual(hashtags, '#SNETIA')
+    assert.doesNotMatch(hashtags, /SmartCorretorAI/)
+  }
+  assert.match(page, /virtual_staging_hashtags/)
+  assert.match(page, /social_caption: \{ label: 'Instagram \/ Facebook', text: caption \}/)
+  assert.match(page, /hasSocialCaptionPropertyData\(property\)/)
+})
+
 test('status e entrega usam o nome específico de cada módulo em BR e US', () => {
   for (const catalog of [pt, en]) {
     assert.match(catalog, /Creating your Virtual Staging|Criando seu Virtual Staging/)
@@ -37,7 +52,7 @@ test('status e entrega usam o nome específico de cada módulo em BR e US', () =
 })
 
 test('Social prepara overlays e Portal mantém uma entrega limpa', () => {
-  assert.match(page, /const videoMarketing = \{[\s\S]*caption:[\s\S]*cta:[\s\S]*professionalIdentity:/)
+  assert.match(page, /const videoMarketing = \{[\s\S]*locale: draftLocale,[\s\S]*caption:[\s\S]*cta:[\s\S]*professionalIdentity:[\s\S]*phone: socialOptions\.phone && includePhone \? phone : ''/)
   assert.match(page, /delivery_metadata: videoMarketing/)
   assert.match(page, /const isSocial = socialOptions\?\.destination === 'social'/)
   assert.match(page, /supportedNetworks=\{\['tiktok'\]\}/)

@@ -7,6 +7,7 @@ const runtime = readFileSync(new URL('../../supabase/functions/virtual-staging-i
 const edge = readFileSync(new URL('../../supabase/functions/virtual-staging-image-test/index.ts', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../../supabase/migrations/20260830030000_finalize_smart_space_staged_economy.sql', import.meta.url), 'utf8')
 const consolidatedMigration = readFileSync(new URL('../../supabase/migrations/20261021020000_add_smart_space_consolidated_delivery.sql', import.meta.url), 'utf8')
+const completedItemsMigration = readFileSync(new URL('../../supabase/migrations/20261022010000_allow_smart_space_consolidated_completed_items.sql', import.meta.url), 'utf8')
 
 test('resultado exibe player e download oficial da transformação', () => {
   assert.match(page, /transformationVideo/)
@@ -36,6 +37,23 @@ test('vídeo consolidado é recuperável, preserva a ordem do lote e não adicio
   assert.match(consolidatedMigration, /claim_smart_space_consolidated_video_render/)
   assert.match(consolidatedMigration, /TO service_role/)
   assert.doesNotMatch(runtime, /openAI|editImage|gpt-image/)
+})
+
+test('consolidado inicia após recovery e aceita os pares concluídos de um lote parcial', () => {
+  assert.match(page, /recoveredResults\.some\(item => item\.status === 'completed'\)/)
+  assert.match(page, /recoveredConsolidated\.state === 'not_requested' \? 'start_consolidated_video'/)
+  assert.match(page, /if \(completedDeliveries > 0\) void syncConsolidatedSmartSpaceVideo/)
+  assert.match(completedItemsMigration, /v_request\.completed_count < 1/)
+  assert.doesNotMatch(completedItemsMigration, /completed_count <> v_request\.image_count/)
+})
+
+test('vídeo consolidado preserva download e compartilhamento social completo', () => {
+  const delivery = page.slice(page.indexOf('function FurnishRenovateDelivery'), page.indexOf('function FurnishRenovateProcessing'))
+  assert.match(delivery, /href=\{consolidatedVideo\.signedUrl\} download/)
+  assert.match(delivery, /<SharePublishActions media=\{\[\{ url: consolidatedVideo\.signedUrl/)
+  const consolidatedShare = delivery.match(/<SharePublishActions media=\{\[\{ url: consolidatedVideo\.signedUrl[\s\S]*?className="mt-4" \/>/)?.[0] || ''
+  assert.ok(consolidatedShare)
+  assert.doesNotMatch(consolidatedShare, /supportedNetworks=/)
 })
 
 test('recovery explícito de resultado concluído nunca inicia novo render', () => {

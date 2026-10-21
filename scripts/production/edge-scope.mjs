@@ -41,7 +41,7 @@ export const VIRTUAL_STAGING_IMAGE_LIMIT_FUNCTIONS=Object.freeze([
 export const VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_FUNCTIONS=Object.freeze([
  'virtual-staging-image-test',
 ])
-export const VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION='supabase/migrations/20261021020000_add_smart_space_consolidated_delivery.sql'
+export const VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION='supabase/migrations/20261022010000_allow_smart_space_consolidated_completed_items.sql'
 export const PROFESSIONAL_IDENTITY_BASELINES=Object.freeze({
  // Four functions advanced before the batch guard rejected the unchanged Hero version.
  // Resume only from the remote state observed immediately before this guarded retry.

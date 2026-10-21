@@ -28,9 +28,11 @@ export type SmartSpaceVideoPlan = {
 }
 
 export type SmartSpaceVideoMarketing = {
+  locale: 'pt-BR' | 'en-US'
   caption: string
   cta: string
   professionalIdentity: string
+  phone: string
 }
 
 const LABELS: Record<string, string> = {
@@ -54,9 +56,11 @@ const cleanMarketingText = (value: unknown, maximum: number) => typeof value ===
 export function normalizeSmartSpaceVideoMarketing(value: unknown): SmartSpaceVideoMarketing {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
   return {
+    locale: source.locale === 'en-US' ? 'en-US' : 'pt-BR',
     caption: cleanMarketingText(source.caption, 480),
     cta: cleanMarketingText(source.cta, 140),
     professionalIdentity: cleanMarketingText(source.professionalIdentity, 180),
+    phone: cleanMarketingText(source.phone, 40),
   }
 }
 
@@ -91,9 +95,17 @@ export function buildSmartSpaceVideoPlan(result: StoredResult, marketing: unknow
 export function buildSmartSpaceConsolidatedVideoPlan(items: Array<Record<string, unknown>>, marketing: unknown = {}): SmartSpaceVideoPlan | null {
   if (!Array.isArray(items) || items.length < 1 || items.length > 5) return null
   const scenes: SmartSpaceVideoScene[] = []
-  for (const item of [...items].sort((left, right) => Number(left.item_index) - Number(right.item_index))) {
+  // A settled batch can contain failed or partial items. The campaign video is
+  // a delivery convenience, so it includes every complete transformation and
+  // never prevents those completed results from being delivered.
+  const completedItems = items.filter(item => item?.status === 'completed'
+    && item?.stage_state === 'completed'
+    && item?.result && typeof item.result === 'object'
+    && (item.result as StoredResult).delivery_status === 'completed')
+  if (!completedItems.length) return null
+  for (const item of completedItems.sort((left, right) => Number(left.item_index) - Number(right.item_index))) {
     const result = item?.result && typeof item.result === 'object' ? item.result as StoredResult : null
-    if (!result || result.delivery_status !== 'completed') return null
+    if (!result || result.delivery_status !== 'completed') continue
     const inputPath = cleanPath(result.input_path)
     const stages = Array.isArray(result.stages) ? result.stages as StoredStage[] : []
     const finalStage = stages.at(-1)
@@ -130,11 +142,27 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
   plan.scenes.forEach((scene, index) => {
     const time = index * sceneDuration
     const transition = [{ time: 0, duration: index === 0 ? 0.3 : 0.45, easing: 'cubic-in-out', type: 'fade', ...(index > 0 ? { transition: true } : {}) }]
-    // Preserve the complete property image. A neutral matte fills the vertical
-    // canvas instead of cropping the room to force a 9:16 cover treatment.
+    // A blurred version of the same image fills a vertical frame without
+    // shrinking the uncropped original into a small card. The foreground stays
+    // contain-fit, centered, and fully visible for the Before → After read.
     elements.push({
       type: 'image',
       track: 1,
+      time,
+      duration: sceneDuration,
+      source: sourceUrls[index],
+      fit: 'cover',
+      x: '50%',
+      y: '50%',
+      width: '110%',
+      height: '110%',
+      blur: '5 vmin',
+      opacity: '72%',
+      animations: transition,
+    })
+    elements.push({
+      type: 'image',
+      track: 2,
       time,
       duration: sceneDuration,
       source: sourceUrls[index],
@@ -153,13 +181,14 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
     textElements.push({
       name,
       type: 'text',
-      track: 2,
+      track: 3,
+      z_index: 10,
       time,
       duration,
       x: '50%',
       y,
       width: '88%',
-      height: emphasis ? '16%' : '12%',
+      height: emphasis ? '14%' : '11%',
       x_alignment: '50%',
       y_alignment: '50%',
       text,
@@ -178,9 +207,19 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
   }
   const closingDuration = Math.min(2.5, plan.durationSeconds)
   const closingTime = Math.max(0, plan.durationSeconds - closingDuration)
-  addText('Campaign-Caption', plan.marketing.caption, 0, plan.durationSeconds, '84%', '3.8 vmin')
-  addText('Campaign-CTA', plan.marketing.cta, closingTime, closingDuration, plan.marketing.professionalIdentity ? '72%' : '78%', '5.0 vmin', true)
-  addText('Professional-Identity', plan.marketing.professionalIdentity, closingTime, closingDuration, plan.marketing.cta ? '87%' : '80%', '3.4 vmin')
+  const locale = plan.marketing.locale
+  const sceneLabel = (kind: string) => {
+    if (kind.startsWith('original')) return locale === 'en-US' ? 'Before' : 'Antes'
+    if (kind.includes('free_space')) return locale === 'en-US' ? 'Clear space' : 'Espaço livre'
+    return locale === 'en-US' ? 'After' : 'Depois'
+  }
+  plan.scenes.forEach((scene, index) => addText(`Transformation-Step-${index + 1}`, sceneLabel(scene.kind), index * sceneDuration, Math.min(1.15, sceneDuration), '9%', '3.7 vmin', true))
+  // Keep the optional caption in a safe lower area while the imagery changes.
+  // The closing card then has dedicated space for CTA, identity, and phone.
+  addText('Campaign-Caption', plan.marketing.caption, 0, closingTime, '84%', '4.2 vmin')
+  addText('Campaign-CTA', plan.marketing.cta, closingTime, closingDuration, '67%', '5.2 vmin', true)
+  addText('Professional-Identity', plan.marketing.professionalIdentity, closingTime, closingDuration, plan.marketing.phone ? '79%' : '84%', '3.7 vmin')
+  addText('Professional-Phone', plan.marketing.phone, closingTime, closingDuration, '89%', '3.7 vmin')
 
   return {
     output_format: 'mp4',

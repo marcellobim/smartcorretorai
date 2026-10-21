@@ -970,8 +970,8 @@ if(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deploy
  if(deployVirtualStagingConsolidatedDelivery){
   const migrationPath=path.join(edgeStage,...VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION.split('/'))
   if(!existsSync(migrationPath)||!sameVirtualStagingTrialMigrationContent(readFileSync(migrationPath),readFileSync(path.join(root,...VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION.split('/')))))throw Error('DEPLOY BLOQUEADO: migration de entrega consolidada divergente no artefato isolado')
-  const beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root),['20261021020000'])
-  if(JSON.stringify(beforeMigrations.pending)!==JSON.stringify(['20261021020000']))throw Error('DEPLOY BLOQUEADO: migration de entrega consolidada não está isolada')
+  const beforeMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root),['20261022010000'])
+  if(JSON.stringify(beforeMigrations.pending)!==JSON.stringify(['20261022010000']))throw Error('DEPLOY BLOQUEADO: migration de entrega consolidada não está isolada')
   console.log(JSON.stringify({virtualStagingConsolidatedDeliveryMigrationValidation:{applied:beforeMigrations.applied.length,pending:beforeMigrations.pending}}))
   run(edgeCli,['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--workdir',edgeStage],root,true)
   const afterMigrations=verifyVirtualStagingTrialMigrationList(runCaptured(edgeCli,['migration','list','--project-ref',BANNER_RECOVERY_RELEASE.projectRef,'--output','json','--workdir',edgeStage],root),[])

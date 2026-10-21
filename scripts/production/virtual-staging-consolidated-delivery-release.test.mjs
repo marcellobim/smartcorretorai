@@ -15,7 +15,7 @@ test('Virtual Staging consolidated delivery is explicit and deploys only its Edg
 })
 
 test('consolidated delivery permits only its committed migration artifact', () => {
- assert.equal(VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION, 'supabase/migrations/20261021020000_add_smart_space_consolidated_delivery.sql')
+ assert.equal(VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION, 'supabase/migrations/20261022010000_allow_smart_space_consolidated_completed_items.sql')
  assert.match(deploySource, /a entrega consolidada do Virtual Staging só pode publicar virtual-staging-image-test/)
  assert.match(deploySource, /a entrega consolidada do Virtual Staging só pode publicar a migration aprovada/)
  assert.match(deploySource, /deployVirtualStagingConsolidatedDelivery[\s\S]{0,2500}\['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE\.projectRef,'--workdir',edgeStage\]/)

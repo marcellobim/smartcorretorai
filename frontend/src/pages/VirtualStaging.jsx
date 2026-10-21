@@ -297,13 +297,26 @@ function FurnishRenovateResultCard({ result, publication, social, caption = '', 
   </article>
 }
 
-function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRetryMaterialization, publication, socialOptions, locale, t }) {
+function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRetryMaterialization, publication, socialOptions, property, locale, t }) {
   const copy = key => t(`virtualStaging.smartSpace.delivery.${key}`)
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
   const unavailableResults = results.filter(result => result.status === 'result_unavailable')
   const isSocial = socialOptions?.destination === 'social'
   const caption = socialOptions?.captionText || ''
+  // CampaignPackage intentionally treats a user caption as literal. Supply the
+  // structured property context separately so its hashtag fallback cannot
+  // collapse a Virtual Staging campaign to the institutional tag alone.
+  const contextualHashtags = isSocial && socialOptions?.property && hasSocialCaptionPropertyData(property)
+    ? buildVirtualStagingCampaignPackage({
+      property,
+      language: locale,
+      cta: socialOptions?.ctaValue || '',
+      phone: socialOptions?.phoneValue || '',
+      professionalIdentity: socialOptions?.identityValue || '',
+      journeyId: FURNISH_RENOVATE_JOURNEY_ID,
+    }).aiCampaigns?.[0]?.hashtags || []
+    : []
 
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
@@ -332,7 +345,10 @@ function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRe
             language: locale,
             sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME,
             mediaType: 'images',
-            existingTexts: { social_caption: { label: 'Instagram / Facebook', text: caption } },
+            existingTexts: {
+              social_caption: { label: 'Instagram / Facebook', text: caption },
+              ...(contextualHashtags.length ? { virtual_staging_hashtags: { label: 'Hashtags', text: contextualHashtags.join(' ') } } : {}),
+            },
             strategy: [locale === 'en-US' ? 'Use this approved caption when sharing the transformation.' : 'Use esta legenda aprovada ao divulgar a transformação.'],
           }} />}
           {results.map(result => result.status === 'completed'
@@ -869,8 +885,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       setFurnishResults(recoveredResults)
       const recoveredConsolidated = normalizeSmartSpaceVideo(data.request?.consolidated_video)
       setConsolidatedVideo(recoveredConsolidated)
-      if ((data.request?.status === 'completed') && recoveredResults.length && recoveredResults.every(item => item.status === 'completed')) {
-        const action = recoveredConsolidated.state === 'not_requested' && !isExplicitRecovery ? 'start_consolidated_video' : 'consolidated_video_status'
+      if ((data.request?.status === 'completed') && recoveredResults.some(item => item.status === 'completed')) {
+        // Explicit recovery is the normal path after a refresh. A completed
+        // request that has never claimed its campaign render must start it;
+        // checking only its status left the persistent video at not_requested.
+        const action = recoveredConsolidated.state === 'not_requested' ? 'start_consolidated_video' : 'consolidated_video_status'
         void syncConsolidatedSmartSpaceVideo({ clientRequestId: recovery.clientRequestId, action })
       }
       if (['completed', 'failed'].includes(data.request?.status)) {
@@ -963,9 +982,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     // provider; the existing video renderer uses it only after the staging
     // image has been completed.
     const videoMarketing = {
+      locale: draftLocale,
       caption: socialOptions.caption ? socialOptions.captionText || '' : '',
       cta: socialOptions.cta ? getVirtualStagingOptionLabel(cta, t) : '',
       professionalIdentity: socialOptions.identity && professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : '',
+      phone: socialOptions.phone && includePhone ? phone : '',
     }
     const initialResults = orderedImages.map((image, originalIndex) => ({
       id: image.key,
@@ -1074,7 +1095,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
           void syncSmartSpaceVideo({ clientRequestId: sessionId, itemIndex: imageIndex, action: 'start_video', marketing: videoMarketing })
         }
       }
-      if (completedDeliveries === orderedImages.length) void syncConsolidatedSmartSpaceVideo({ clientRequestId: sessionId, action: 'start_consolidated_video' })
+      if (completedDeliveries > 0) void syncConsolidatedSmartSpaceVideo({ clientRequestId: sessionId, action: 'start_consolidated_video' })
       setStatus('completed')
       await reloadProfile()
     } catch (error) {
@@ -1184,7 +1205,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       propertyFacts,
       property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale: draftLocale, market: draftMarket })).join(' · '),
     ].filter(Boolean).join('\n')
-    return <FurnishRenovateDelivery results={furnishResults} consolidatedVideo={consolidatedVideo} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} socialOptions={{ ...socialOptions, destination: useDestination, propertySummary, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
+    return <FurnishRenovateDelivery results={furnishResults} consolidatedVideo={consolidatedVideo} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} property={property} socialOptions={{ ...socialOptions, destination: useDestination, propertySummary, ctaValue: cta, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
   }
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
