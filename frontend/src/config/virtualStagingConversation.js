@@ -58,30 +58,33 @@ const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({
   decoration_style: 'images',
   images: 'use_destination',
   use_destination: 'review',
-  social_options: 'review',
+  social_options: 'social_caption_decision',
+  social_property_details: 'social_caption_decision',
+  social_caption_decision: 'social_cta_decision',
+  social_caption_mode: 'social_cta_decision',
+  social_caption_custom: 'social_cta_decision',
+  social_cta_decision: 'social_phone_decision',
+  social_phone_decision: 'social_identity_decision',
+  social_identity_decision: 'review',
   cta: 'review',
   phone: 'review',
   professional_identity: 'review',
 })
 
-const nextFurnishSocialQuestion = socialOptions => {
-  if (socialOptions.caption) return 'social_caption_mode'
-  if (socialOptions.cta) return 'cta'
-  if (socialOptions.phone) return 'phone'
-  if (socialOptions.identity) return 'professional_identity'
-  return 'review'
-}
-
 export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '', socialOptions = {} }) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
     if (questionId === 'transformation_type') return furnishRenovateRequiresStyle(answerId) ? 'decoration_style' : 'images'
     if (questionId === 'use_destination') return answerId === 'social' ? 'social_options' : 'review'
-    if (questionId === 'social_options') return socialOptions.property ? 'social_property_details' : nextFurnishSocialQuestion(socialOptions)
-    if (questionId === 'social_property_details') return nextFurnishSocialQuestion(socialOptions)
-    if (questionId === 'social_caption_mode') return answerId === 'custom' ? 'social_caption_custom' : nextFurnishSocialQuestion({ ...socialOptions, caption: false })
-    if (questionId === 'social_caption_custom') return nextFurnishSocialQuestion({ ...socialOptions, caption: false })
-    if (questionId === 'cta') return socialOptions.phone ? 'phone' : socialOptions.identity ? 'professional_identity' : 'review'
-    if (questionId === 'phone') return socialOptions.identity ? 'professional_identity' : 'review'
+    if (questionId === 'social_options') return answerId === 'yes' ? 'social_property_details' : 'social_caption_decision'
+    if (questionId === 'social_property_details') return 'social_caption_decision'
+    if (questionId === 'social_caption_decision') return answerId === 'yes' ? 'social_caption_mode' : 'social_cta_decision'
+    if (questionId === 'social_caption_mode') return answerId === 'custom' ? 'social_caption_custom' : 'social_cta_decision'
+    if (questionId === 'social_caption_custom') return 'social_cta_decision'
+    if (questionId === 'social_cta_decision') return answerId === 'yes' ? 'cta' : 'social_phone_decision'
+    if (questionId === 'cta') return 'social_phone_decision'
+    if (questionId === 'social_phone_decision') return answerId === 'yes' ? 'phone' : 'social_identity_decision'
+    if (questionId === 'phone') return 'social_identity_decision'
+    if (questionId === 'social_identity_decision') return answerId === 'yes' ? 'professional_identity' : 'review'
     return FURNISH_RENOVATE_NEXT_QUESTION[questionId] || 'review'
   }
   if (journeyId === LIFE_IN_PROPERTY_JOURNEY_ID) return LIFE_IN_PROPERTY_NEXT_QUESTION[questionId] || 'review'
@@ -95,7 +98,12 @@ export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode 
   return LINEAR_NEXT_QUESTION[questionId] || 'review'
 }
 export function getVirtualStagingReviewEditNext({ originQuestionId, questionId, answerId = '', mode = '', journeyId = '' }) {
-  if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) return 'review'
+  if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
+    const socialQuestionIds = ['social_options', 'social_property_details', 'social_caption_decision', 'social_caption_mode', 'social_caption_custom', 'social_cta_decision', 'cta', 'social_phone_decision', 'phone', 'social_identity_decision', 'professional_identity']
+    return socialQuestionIds.includes(originQuestionId)
+      ? getVirtualStagingNextQuestion({ questionId, answerId, mode, journeyId })
+      : 'review'
+  }
   if (originQuestionId === 'presenter_reference') {
     if (questionId === 'presenter_reference') return getVirtualStagingNextQuestion({ questionId, answerId, mode, journeyId })
     if (questionId === 'presenter_photo') return 'review'

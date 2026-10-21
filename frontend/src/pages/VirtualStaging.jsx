@@ -25,7 +25,7 @@ import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/down
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
-import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateDestinationOptions, getFurnishRenovateSocialOptions, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation, isRecoverableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
+import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateDestinationOptions, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation, isRecoverableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
 import { BROKER_CUSTOM_SPEECH_MAX_WORDS, BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, BROKER_SPEECH_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
@@ -48,7 +48,7 @@ const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para mora
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', neighborhood: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
 const initialGeneration = { mode: 'guided_tour', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
-const initialSocialOptions = Object.freeze({ property: false, caption: false, captionMode: '', captionText: '', cta: false, phone: false, identity: false })
+const initialSocialOptions = Object.freeze({ property: null, caption: null, captionMode: '', captionText: '', cta: null, phone: null, identity: null })
 const ANALYTICS_PRODUCT_BY_JOURNEY = Object.freeze({
   [FURNISH_RENOVATE_JOURNEY_ID]: 'virtual_staging',
   [LIFE_IN_PROPERTY_JOURNEY_ID]: 'vida_no_imovel',
@@ -542,14 +542,18 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (questionId === 'decoration_style') return !transformationType || furnishRenovateRequiresStyle(transformationType)
       if (questionId === 'social_options') return useDestination === 'social'
       if (questionId === 'social_property_details') return useDestination === 'social' && socialOptions.property
+      if (questionId === 'social_caption_decision') return useDestination === 'social'
       if (questionId === 'social_caption_mode') return useDestination === 'social' && socialOptions.caption
       if (questionId === 'social_caption_custom') return useDestination === 'social' && socialOptions.caption && socialOptions.captionMode === 'custom'
+      if (questionId === 'social_cta_decision') return useDestination === 'social'
       if (questionId === 'cta') return socialOptions.cta
-      if (questionId === 'phone') return socialOptions.phone
+      if (questionId === 'social_phone_decision') return useDestination === 'social'
+      if (questionId === 'phone') return socialOptions.phone && !phone
+      if (questionId === 'social_identity_decision') return useDestination === 'social'
       if (questionId === 'professional_identity') return socialOptions.identity
       return true
     })
-  }, [journey.id, socialOptions.caption, socialOptions.captionMode, socialOptions.cta, socialOptions.identity, socialOptions.phone, socialOptions.property, transformationType, useDestination])
+  }, [journey.id, phone, socialOptions.caption, socialOptions.captionMode, socialOptions.cta, socialOptions.identity, socialOptions.phone, socialOptions.property, transformationType, useDestination])
   const questionOrder = useMemo(() => questions.map(item => item[0]), [questions])
   const furnishProject = useMemo(() => ({
     transformation_type: transformationType,
@@ -681,7 +685,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     images: 'images', purpose: 'purpose', stage: 'stage', type: 'type', facts: 'facts', location: 'location', commercial: 'commercial', highlights: 'highlights', life_scene: 'lifeScene', captions: 'captions', cta: 'cta', phone: 'phone', review: 'review', presenter_reference: 'presenterReference', presenter_photo: 'presenterPhoto', presenter_speech_mode: 'speech', presenter_custom_speech: 'customSpeech', cta_enabled: 'ctaEnabled',
   }[question[0]]
   const furnishCopy = getFurnishRenovateCopy(draftLocale)
-  const smartSpaceQuestions = isFurnishRenovate ? { transformation_type: furnishCopy.transformationQuestion, decoration_style: furnishCopy.styleQuestion, images: furnishCopy.uploadQuestion, use_destination: furnishCopy.destinationQuestion, social_options: furnishCopy.socialOptionsQuestion, social_property_details: furnishCopy.socialPropertyQuestion, social_caption_mode: furnishCopy.socialCaptionModeQuestion, social_caption_custom: furnishCopy.socialCaptionCustomQuestion, review: furnishCopy.reviewQuestion } : null
+  const smartSpaceQuestions = isFurnishRenovate ? { transformation_type: furnishCopy.transformationQuestion, decoration_style: furnishCopy.styleQuestion, images: furnishCopy.uploadQuestion, use_destination: furnishCopy.destinationQuestion, social_options: furnishCopy.socialOptionsQuestion, social_property_details: furnishCopy.socialPropertyQuestion, social_caption_decision: furnishCopy.socialCaptionDecisionQuestion, social_caption_mode: furnishCopy.socialCaptionModeQuestion, social_caption_custom: furnishCopy.socialCaptionCustomQuestion, social_cta_decision: furnishCopy.socialCtaDecisionQuestion, social_phone_decision: furnishCopy.socialPhoneDecisionQuestion, social_identity_decision: furnishCopy.socialIdentityDecisionQuestion, review: furnishCopy.reviewQuestion } : null
   const localizedQuestion = question[0] === 'professional_identity' ? (draftMarket === 'US' ? 'Would you like to include your professional information?' : 'Deseja incluir sua identificação profissional?') : isFurnishRenovate && smartSpaceQuestions ? smartSpaceQuestions[question[0]] : localizedQuestionKey ? t(`virtualStaging.questions.${localizedQuestionKey}`) : question[0] === 'presenter_reference_required' ? (draftLocale === 'en-US' ? 'This module uses your photo as a reference to create the presenter. Without a reference photo, use Real Estate Video to create your presentation.' : 'Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.') : question[2]
   const reachedStep = isFurnishRenovate && !hasStartedFurnish
     ? null
@@ -1365,16 +1369,7 @@ function Question(props) {
   if (id === 'transformation_type' && isFurnishRenovate) return choices(getFurnishRenovateTransformationOptions(locale), transformationType, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setTransformationType(value); if (!furnishRenovateRequiresStyle(value)) setDecorationStyle('') } }))
   if (id === 'decoration_style' && isFurnishRenovate) return choices(getFurnishRenovateStyleOptions(locale), decorationStyle, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setDecorationStyle(value) }))
   if (id === 'use_destination' && isFurnishRenovate) return choices(getFurnishRenovateDestinationOptions(locale), useDestination, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setUseDestination(value); if (value !== 'social') setSocialOptions(initialSocialOptions) } }))
-  if (id === 'social_options' && isFurnishRenovate) {
-    const toggle = optionId => setSocialOptions(current => ({ ...current, [optionId]: !current[optionId] }))
-    const selectedLabels = getFurnishRenovateSocialOptions(locale).filter(option => socialOptions[option.id]).map(option => option.label)
-    const nextQuestionId = getVirtualStagingNextQuestion({ questionId: 'social_options', journeyId, socialOptions })
-    return <div className="space-y-4">
-      <p className="text-sm font-semibold text-slate-600">{furnishCopy.socialOptionsHelp}</p>
-      <div className="grid gap-2 sm:grid-cols-2">{getFurnishRenovateSocialOptions(locale).map(option => <label key={option.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800"><input type="checkbox" checked={Boolean(socialOptions[option.id])} onChange={() => toggle(option.id)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />{option.label}</label>)}</div>
-      {cont(false, selectedLabels.join(' · ') || (locale === 'en-US' ? 'No optional social items selected' : 'Nenhum item social opcional selecionado'), nextQuestionId)}
-    </div>
-  }
+  if (id === 'social_options' && isFurnishRenovate) return choices([{ id: 'yes', label: t('virtualStaging.yes') }, { id: 'no', label: t('virtualStaging.no') }], socialOptions.property ? 'yes' : socialOptions.property === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setSocialOptions(current => ({ ...current, property: value === 'yes' })); if (value === 'no') setProperty(initialProperty) } }))
   if (id === 'social_property_details' && isFurnishRenovate) {
     const fields = getVirtualStagingMeasureFields(property.type)
     const fieldLabels = { bedrooms: t('virtualStaging.measures.bedrooms'), suites: t('virtualStaging.measures.suites'), parkingSpaces: t('virtualStaging.measures.parkingSpaces'), area: t('virtualStaging.measures.area') }
@@ -1416,6 +1411,10 @@ function Question(props) {
     const nextQuestionId = getVirtualStagingNextQuestion({ questionId: id, journeyId, socialOptions })
     return <div className="space-y-4"><SocialCaptionEditor value={socialOptions.captionText || ''} onChange={value => setSocialOptions(current => ({ ...current, captionText: value, captionMode: 'custom' }))} placeholder={locale === 'en-US' ? 'Write the caption you want to use.' : 'Escreva a legenda que deseja usar.'} uiLabels={{ label: furnishCopy.socialCaptionCustomQuestion, help: locale === 'en-US' ? 'You can review and edit it again before publishing.' : 'Você poderá revisar e editar novamente antes de publicar.', limit: t('virtualStaging.social.caption.limit') }} />{cont(!countSocialCaptionCharacters(socialOptions.captionText), socialOptions.captionText, nextQuestionId, () => setSocialOptions(current => ({ ...current, captionMode: 'custom' })))}</div>
   }
+  if (id === 'social_caption_decision' && isFurnishRenovate) return choices([{ id: 'yes', label: t('virtualStaging.yes') }, { id: 'no', label: t('virtualStaging.no') }], socialOptions.caption ? 'yes' : socialOptions.caption === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setSocialOptions(current => ({ ...current, caption: value === 'yes', ...(value === 'no' ? { captionMode: '', captionText: '' } : {}) })) }))
+  if (id === 'social_cta_decision' && isFurnishRenovate) return choices([{ id: 'yes', label: t('virtualStaging.yes') }, { id: 'no', label: t('virtualStaging.no') }], socialOptions.cta ? 'yes' : socialOptions.cta === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setSocialOptions(current => ({ ...current, cta: value === 'yes' })); if (value === 'no') setCta('') } }))
+  if (id === 'social_phone_decision' && isFurnishRenovate) return choices([{ id: 'yes', label: t('virtualStaging.yes') }, { id: 'no', label: t('virtualStaging.no') }], socialOptions.phone ? 'yes' : socialOptions.phone === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, nextQuestionId: value === 'yes' && phone ? 'social_identity_decision' : undefined, apply: () => { setSocialOptions(current => ({ ...current, phone: value === 'yes' })); setIncludePhone(value === 'yes') } }))
+  if (id === 'social_identity_decision' && isFurnishRenovate) return choices([{ id: 'yes', label: t('virtualStaging.yes') }, { id: 'no', label: t('virtualStaging.no') }], socialOptions.identity ? 'yes' : socialOptions.identity === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setSocialOptions(current => ({ ...current, identity: value === 'yes' })) }))
   if (id === 'presenter_reference') return choices(BROKER_REFERENCE_OPTIONS.map(option => ({ ...option, label: option.id === 'yes' ? t('common.yes') : t('common.no') })), presenterReferenceDecision === true ? 'yes' : presenterReferenceDecision === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterReferenceDecision(value === 'yes'); if (value === 'no') clearPresenterReference() } }))
   if (id === 'presenter_speech_mode') return choices(BROKER_SPEECH_OPTIONS.map(option => ({ ...option, label: t(`virtualStaging.speech.${option.id}`) })), presenterSpeechMode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterSpeechMode(value); if (value !== 'custom') setPresenterCustomSpeech('') } }))
   if (id === 'presenter_custom_speech') { const words = presenterCustomSpeech.trim().split(/\s+/).filter(Boolean); return <><textarea value={presenterCustomSpeech} onChange={event => setPresenterCustomSpeech(event.target.value)} placeholder={t('virtualStaging.speech.placeholder')} className="min-h-32 w-full rounded-xl border p-3" /><p className="mt-2 text-xs text-slate-500">{t('virtualStaging.speech.limit').replace('{count}', BROKER_CUSTOM_SPEECH_MAX_WORDS)}</p>{cont(!words.length || words.length > BROKER_CUSTOM_SPEECH_MAX_WORDS, presenterCustomSpeech.trim(), 'captions')}</> }
@@ -1511,7 +1510,7 @@ function Question(props) {
     })}
   />
   if (isFurnishRenovate) {
-    const smartReview = locale === 'en-US' ? { title: 'Review your project', edit: 'Edit', transform: 'Transform space', remake: 'Start over', cost: 'ST per image · Selection total:' } : { title: 'Revise seu projeto', edit: 'Editar', transform: 'Transformar espaço', remake: 'Refazer projeto', cost: 'ST por imagem · Total da seleção:' }
+    const smartReview = locale === 'en-US' ? { title: 'Review your project', edit: 'Edit', back: 'Back and edit', transform: 'Transform space', restart: 'Restart', cost: 'ST per image · Selection total:' } : { title: 'Revise seu projeto', edit: 'Editar', back: 'Voltar e corrigir', transform: 'Transformar espaço', restart: 'Recomeçar', cost: 'ST por imagem · Total da seleção:' }
     return <>
       <div className="rounded-2xl bg-primary-50 p-4 text-sm font-semibold leading-6 text-primary-950">
         <p className="text-lg font-black">{smartReview.title}</p>
@@ -1520,7 +1519,7 @@ function Question(props) {
         <p className="mt-3 text-sm font-black text-primary-900">{getSmartSpaceUnitCost(transformationType)} {smartReview.cost} {getSmartSpaceQuote(transformationType, images.length)} ST</p>
       </div>
       {status === 'error' && message && <p role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">{message}</p>}
-      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"><Button type="button" disabled={!canGenerateFurnish || furnishGenerationBusy} aria-disabled={!canGenerateFurnish || furnishGenerationBusy} onClick={createTour} className="w-full"><Sparkles className="mr-2 h-4 w-4" />{smartReview.transform}</Button><button type="button" disabled={furnishGenerationBusy} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">{smartReview.remake}</button></div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3"><Button type="button" disabled={!canGenerateFurnish || furnishGenerationBusy} aria-disabled={!canGenerateFurnish || furnishGenerationBusy} onClick={createTour} className="w-full"><Sparkles className="mr-2 h-4 w-4" />{smartReview.transform}</Button><button type="button" disabled={furnishGenerationBusy} onClick={() => onReviewEdit(reviewItems[reviewItems.length - 1]?.id || 'use_destination')} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">{smartReview.back}</button><button type="button" disabled={furnishGenerationBusy} onClick={resetCreation} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">{smartReview.restart}</button></div>
     </>
   }
   const finalChoiceItems = [
