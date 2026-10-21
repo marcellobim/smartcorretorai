@@ -746,7 +746,8 @@ const deployAiStudioCommercialHotfix=mode==='--ai-studio-commercial-hotfix'
 const deployVirtualStagingTrial=mode==='--virtual-staging-trial'
 const deployFreeAccount400=mode==='--free-account-400-st'
 const deployVirtualStagingImageLimitHotfix=mode==='--virtual-staging-image-limit-hotfix'
-const deployVirtualStagingConsolidatedDelivery=mode==='--virtual-staging-consolidated-delivery'
+const resumeVirtualStagingConsolidatedBackend=mode==='--virtual-staging-consolidated-backend-resume'
+const deployVirtualStagingConsolidatedDelivery=mode==='--virtual-staging-consolidated-delivery'||resumeVirtualStagingConsolidatedBackend
  if(candidateOnly&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery||deployRealEstateVideoLocalization||deployCampaignLocalization||deployTextCampaignHotfix||deployAiStudioCommercialHotfix||deployVirtualStagingTrial||deployFreeAccount400||deployVirtualStagingImageLimitHotfix||deployVirtualStagingConsolidatedDelivery))throw Error('DEPLOY BLOQUEADO: --candidate-only não pode ser combinado com modos de Edge/Banner')
  if(target.name!=='smartcorretorai'&&(deployVideoSocialMetadata||deployAdminApi||deployTikTokContentPosting||deployBannerRecovery||promoteBannerRecovery))throw Error('DEPLOY BLOQUEADO: modos de Edge/Banner pertencem somente ao target smartcorretorai')
  if(deployProfessionalIdentity&&target.name!=='snetia')throw Error('DEPLOY BLOQUEADO: lote profissional pertence somente ao target snetia')
@@ -895,7 +896,17 @@ writeFileSync(path.join(stage,'vercel.json'),JSON.stringify(stagedVercelConfig,n
 mkdirSync(path.join(stage,'.vercel'),{recursive:true});writeFileSync(path.join(stage,'.vercel/project.json'),JSON.stringify({projectId:target.projectId,orgId:target.teamId}))
 console.log(candidateOnly?'Guard PASS; production baseline: not required for candidate-only':'Guard PASS; candidato '+sha+' contém Production '+current.sha)
 let url,info,fresh,candidateSha=sha
-if(deployBannerRecovery){
+if(resumeVirtualStagingConsolidatedBackend){
+ const productionMigration=git('rev-parse',current.sha+':'+VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION)
+ const requestedMigration=git('rev-parse',sha+':'+VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_MIGRATION)
+ if(productionMigration!==requestedMigration)throw Error('DEPLOY BLOQUEADO: retomada exige migration aprovada idêntica já presente no frontend de Production')
+ info=JSON.parse(vc(['inspect',target.alias,'--json']))
+ if(info?.id!==current.id||info?.readyState!=='READY')throw Error('DEPLOY BLOQUEADO: deployment oficial divergente na retomada')
+ assertTargetIdentity(target,JSON.parse(vc(['api','/v13/deployments/'+info.id,'--raw'])))
+ url='https://'+target.alias
+ fresh=current
+ console.log('Retomada backend validada; o frontend aprovado já está em Production.')
+} else if(deployBannerRecovery){
  const candidate=await acquireBannerStageOneCandidate({
   explicitUrl:process.env.BANNER_RECOVERY_CANDIDATE_URL,
   createDeployment:()=>{
@@ -914,10 +925,7 @@ if(deployBannerRecovery){
  ;({url,info,fresh,candidateSha}=candidate)
  console.log(candidate.reused?'Candidato Vercel explícito validado e reutilizado; nenhum novo deployment foi criado.':'Candidato Vercel criado e confirmado READY.')
 } else {
- // A candidate must remain outside the production alias until its proof,
- // scoped migrations and Edge release have all passed. Promotion is explicit
- // at the end of this workflow.
- const output=vc(['deploy','--skip-domain','--yes','--build-env','PRODUCTION_TARGET='+target.name,'--meta','githubCommitSha='+sha],stage)
+ const output=vc(['deploy','--prod','--skip-domain','--yes','--build-env','PRODUCTION_TARGET='+target.name,'--meta','githubCommitSha='+sha],stage)
  const match=output.match(/https:\/\/[a-z0-9-]+\.vercel\.app/g)
  if(!match)throw Error('Deployment não identificado; domínio oficial não alterado')
  url=match.at(-1)
@@ -1061,6 +1069,12 @@ if(deployBannerRecovery){
  await protectedCandidateSmoke(url)
  console.log('Candidato Banner pronto. Use --banner-recovery-promote somente após aprovação humana explícita.')
   return
+}
+
+if(resumeVirtualStagingConsolidatedBackend){
+ for(const route of target.smokeRoutes){const response=await fetch('https://'+target.alias+route,{redirect:'manual',cache:'no-store'});if(!response.ok)throw Error('Smoke pós-retomada falhou: '+route)}
+ console.log(JSON.stringify({target:target.name,sha,currentFrontendSha:current.sha,deploymentId:current.id,alias:target.alias,frontendDeploymentChanged:false,backendResume:'PASS'}))
+ return
 }
 
 if(candidateOnly){

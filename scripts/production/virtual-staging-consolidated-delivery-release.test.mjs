@@ -12,6 +12,7 @@ test('Virtual Staging consolidated delivery is explicit and deploys only its Edg
  assert.deepEqual(edgeScope(args), VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_FUNCTIONS)
  assert.deepEqual(VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_FUNCTIONS, ['virtual-staging-image-test'])
  assert.throws(() => edgeScope([...args, '--admin-api']))
+ assert.deepEqual(edgeScope(['--target', 'snetia', '--virtual-staging-consolidated-backend-resume']), ['virtual-staging-image-test'])
 })
 
 test('consolidated delivery permits only its committed migration artifact', () => {
@@ -19,7 +20,8 @@ test('consolidated delivery permits only its committed migration artifact', () =
  assert.match(deploySource, /a entrega consolidada do Virtual Staging só pode publicar virtual-staging-image-test/)
  assert.match(deploySource, /a entrega consolidada do Virtual Staging só pode publicar a migration aprovada/)
  assert.match(deploySource, /migrationAlreadyInProduction/)
- assert.doesNotMatch(deploySource, /vc\(\['deploy','--prod','--skip-domain','--yes','--build-env','PRODUCTION_TARGET='\+target\.name/)
+ assert.match(deploySource, /resumeVirtualStagingConsolidatedBackend/)
+ assert.match(deploySource, /Retomada backend validada/)
  assert.match(deploySource, /deployVirtualStagingConsolidatedDelivery[\s\S]{0,2500}\['db','push','--include-all','--project-ref',BANNER_RECOVERY_RELEASE\.projectRef,'--workdir',edgeStage\]/)
 })
 

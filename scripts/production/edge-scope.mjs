@@ -48,7 +48,7 @@ export const PROFESSIONAL_IDENTITY_BASELINES=Object.freeze({
  'smart-carousel-creatomate':55,'smart-tour-generate':88,'criar-video-ia':214,'generate-text-campaign':45,'gerar-hero-ia':87,
 })
 
-const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity','--real-estate-video-localization','--campaign-localization','--text-campaign-hotfix','--ai-studio-commercial-hotfix','--virtual-staging-trial','--free-account-400-st','--virtual-staging-image-limit-hotfix','--virtual-staging-consolidated-delivery']
+const releaseModes=['--video-social-metadata','--admin-api','--tiktok-content-posting','--banner-recovery-hotfix','--banner-recovery-promote','--professional-identity','--real-estate-video-localization','--campaign-localization','--text-campaign-hotfix','--ai-studio-commercial-hotfix','--virtual-staging-trial','--free-account-400-st','--virtual-staging-image-limit-hotfix','--virtual-staging-consolidated-delivery','--virtual-staging-consolidated-backend-resume']
 
 export function deploymentMode(args){
  const modes=[]
@@ -80,7 +80,7 @@ export function edgeScope(args) {
  if(mode==='--virtual-staging-trial')return [...VIRTUAL_STAGING_TRIAL_FUNCTIONS]
  if(mode==='--free-account-400-st')return [...FREE_ACCOUNT_400_ST_FUNCTIONS]
  if(mode==='--virtual-staging-image-limit-hotfix')return [...VIRTUAL_STAGING_IMAGE_LIMIT_FUNCTIONS]
- if(mode==='--virtual-staging-consolidated-delivery')return [...VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_FUNCTIONS]
+ if(mode==='--virtual-staging-consolidated-delivery'||mode==='--virtual-staging-consolidated-backend-resume')return [...VIRTUAL_STAGING_CONSOLIDATED_DELIVERY_FUNCTIONS]
  if(mode==='--banner-recovery-hotfix')return [BANNER_RECOVERY_RELEASE.functionName]
  return []
 }
