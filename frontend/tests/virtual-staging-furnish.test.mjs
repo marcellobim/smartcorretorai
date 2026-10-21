@@ -177,7 +177,8 @@ test('keeps final review, Back/Edit/reset, and historical recovery compatible', 
 
 test('keeps destination and social options out of the Edge image-generation payload', () => {
   const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
+  const imageGeneration = integration.slice(integration.indexOf('const generateBody'), integration.indexOf("functions.invoke('virtual-staging-image-test', { body: generateBody"))
   assert.match(integration, /functions\.invoke\('virtual-staging-image-test'/)
-  assert.doesNotMatch(integration, /use_destination|socialOptions|captionText|propertyText/)
+  assert.doesNotMatch(imageGeneration, /use_destination|socialOptions|captionText|propertyText/)
   assert.doesNotMatch(read('frontend/src/config/virtualStagingFurnish.js'), /supabase|fetch\(|invoke\(/)
 })

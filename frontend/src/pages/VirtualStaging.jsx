@@ -191,6 +191,8 @@ async function materializeSmartSpaceResult({ rawResult, inputPath, originalIndex
   }
 }
 
+const smartSpaceModuleKey = journeyId => journeyId === LIFE_IN_PROPERTY_JOURNEY_ID ? 'life' : journeyId === BROKER_PRESENTATION_JOURNEY_ID ? 'broker' : 'virtualStaging'
+const smartSpaceModuleCopy = (t, journeyId, key) => t(`virtualStaging.smartSpace.modules.${smartSpaceModuleKey(journeyId)}.${key}`)
 const smartSpaceCopy = (t, key) => t(key).replaceAll('Smart Space', VIRTUAL_STAGING_PRODUCT_NAME)
 const smartSpaceText = t => Object.fromEntries(['image', 'original', 'result', 'enlarge', 'download', 'publish', 'transformationVideo', 'recommended', 'videoTip', 'downloadVideo', 'publishVideo', 'partial', 'videoFinishing', 'videoFailed'].map(key => [key, smartSpaceCopy(t, `virtualStaging.smartSpace.${key}`)]))
 
@@ -295,7 +297,7 @@ function FurnishRenovateResultCard({ result, publication, social, caption = '', 
   </article>
 }
 
-function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication, socialOptions, locale, t }) {
+function FurnishRenovateDelivery({ results, consolidatedVideo, onCreateNew, onRetryMaterialization, publication, socialOptions, locale, t }) {
   const copy = key => t(`virtualStaging.smartSpace.delivery.${key}`)
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
@@ -306,10 +308,18 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
       <ProductCard className="p-5 sm:p-7">
-        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">{smartSpaceCopy(t, 'virtualStaging.smartSpace.resultReady')}</h2>
+        <h2 id="virtual-staging-result-title" className="text-3xl font-black tracking-tight text-slate-950">{smartSpaceModuleCopy(t, FURNISH_RENOVATE_JOURNEY_ID, 'ready')}</h2>
         {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">{copy('failedSome')}</p>}
         {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">{copy('loadingSome')}</p>}
         <div className="mt-6 space-y-6">
+          {consolidatedVideo?.state === 'completed' && consolidatedVideo.signedUrl && <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5" aria-label={locale === 'en-US' ? 'Campaign transformation video' : 'Vídeo consolidado da transformação'}>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{locale === 'en-US' ? 'Campaign video' : 'Vídeo de campanha'}</p>
+            <h3 className="mt-1 text-lg font-black text-emerald-950">{locale === 'en-US' ? 'All transformations in one video' : 'Todas as transformações em um vídeo'}</h3>
+            <video src={consolidatedVideo.signedUrl} controls playsInline preload="metadata" className="mt-4 mx-auto max-h-[38rem] w-full rounded-2xl bg-black object-contain" />
+            <a href={consolidatedVideo.signedUrl} download className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white"><Download className="h-5 w-5" />{locale === 'en-US' ? 'Download campaign video' : 'Baixar vídeo de campanha'}</a>
+            {isSocial && <SharePublishActions media={[{ url: consolidatedVideo.signedUrl, name: 'snetia-space-campaign-transformation.mp4', type: 'video', mimeType: 'video/mp4' }]} shareTitle={locale === 'en-US' ? 'Snetia Space transformation' : 'Transformação Snetia Space'} shareText={caption} defaultExpanded className="mt-4" />}
+          </section>}
+          {['submitting', 'rendering'].includes(consolidatedVideo?.state) && <p role="status" className="rounded-2xl border border-primary-200 bg-primary-50 p-3 text-sm font-bold text-primary-900">{locale === 'en-US' ? 'Preparing your campaign transformation video…' : 'Preparando seu vídeo consolidado de transformação…'}</p>}
           {isSocial && (socialOptions?.property || socialOptions?.caption || socialOptions?.cta || socialOptions?.phone || socialOptions?.identity) && <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5" aria-label={locale === 'en-US' ? 'Social campaign details' : 'Detalhes da campanha social'}>
             <h3 className="text-lg font-black text-emerald-950">{locale === 'en-US' ? 'Social sharing details' : 'Detalhes para redes sociais'}</h3>
             {socialOptions?.property && <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-emerald-950">{socialOptions?.propertySummary || (locale === 'en-US' ? 'No property details added.' : 'Nenhum dado do imóvel adicionado.')}</p>}
@@ -352,7 +362,7 @@ function FurnishRenovateProcessing({ results, t }) {
   return <section className="mt-10" aria-labelledby="virtual-staging-processing-title">
     <ProductCard className="p-6 sm:p-8">
       <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">{smartSpaceCopy(t, 'virtualStaging.smartSpace.processingTitle')}</h2>
+      <h2 id="virtual-staging-processing-title" className="mt-4 text-3xl font-black tracking-tight text-slate-950">{smartSpaceModuleCopy(t, FURNISH_RENOVATE_JOURNEY_ID, 'creating')}</h2>
       <p className="mt-3 text-base font-semibold text-slate-600">{t('virtualStaging.smartSpace.processingDescription')}</p>
       <p className="mt-2 text-sm font-black text-primary-800">{t('virtualStaging.smartSpace.processingImage')} {Math.min(activeIndex + 1, results.length)} {t('virtualStaging.smartSpace.of')} {results.length}</p>
       <ol className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -445,6 +455,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const draftLocale = normalizeLocale(locale)
   const draftMarket = normalizeMarket(market)
   const lifeBrokerCopy = key => t(`virtualStaging.lifeBroker.${key}`)
+  const journeyProgressCopy = key => smartSpaceModuleCopy(t, journey.id, key)
   const restoredConversation = journey.id === FURNISH_RENOVATE_JOURNEY_ID && restoredJourneyDraft.conversation
     ? {
         ...restoredJourneyDraft.conversation,
@@ -465,6 +476,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const furnishGenerationInFlightRef = useRef(false)
   const furnishRecoveryPollRef = useRef(null)
   const furnishVideoPollsRef = useRef(new Map())
+  const consolidatedVideoPollRef = useRef(null)
   const furnishRecoveryStartedRef = useRef(false)
   const restoredIdentityNeedsValidationRef = useRef(restoredJourneyDraft.professionalIdentity?.enabled === true)
   const [hasStartedFurnish, setHasStartedFurnish] = useState(() => restoredJourneyDraft.hasStartedFurnish === true)
@@ -500,12 +512,13 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [message, setMessage] = useState(restoredDraftMessage)
   const [result, setResult] = useState(null)
   const [furnishResults, setFurnishResults] = useState([])
+  const [consolidatedVideo, setConsolidatedVideo] = useState(() => normalizeSmartSpaceVideo(null))
   const [hasAttemptedFurnishGeneration, setHasAttemptedFurnishGeneration] = useState(false)
   const [conversationSnapshot, setConversationSnapshot] = useState(() => restoredConversation || null)
-  const syncSmartSpaceVideo = useCallback(async ({ clientRequestId, itemIndex, action = 'video_status' }) => {
+  const syncSmartSpaceVideo = useCallback(async ({ clientRequestId, itemIndex, action = 'video_status', marketing = {} }) => {
     const key = `${clientRequestId}:${itemIndex}`
     const { data, error } = await supabase.functions.invoke('virtual-staging-image-test', { body: {
-      action, client_request_id: clientRequestId, item_index: itemIndex,
+      action, client_request_id: clientRequestId, item_index: itemIndex, marketing,
     } })
     if (error || !data?.ok) {
       setFurnishResults(current => current.map(item => Number(item.originalIndex) === Number(itemIndex)
@@ -520,9 +533,25 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (currentTimer) clearTimeout(currentTimer)
       const timer = setTimeout(() => {
         furnishVideoPollsRef.current.delete(key)
-        void syncSmartSpaceVideo({ clientRequestId, itemIndex, action: 'video_status' })
+        void syncSmartSpaceVideo({ clientRequestId, itemIndex, action: 'video_status', marketing })
       }, 5000)
       furnishVideoPollsRef.current.set(key, timer)
+    }
+  }, [])
+  const syncConsolidatedSmartSpaceVideo = useCallback(async ({ clientRequestId, action = 'consolidated_video_status' }) => {
+    const { data, error } = await supabase.functions.invoke('virtual-staging-image-test', { body: { action, client_request_id: clientRequestId } })
+    if (error || !data?.ok) {
+      setConsolidatedVideo(current => ({ ...current, state: 'failed_unknown', failureReason: data?.code || 'video_unavailable' }))
+      return
+    }
+    const video = normalizeSmartSpaceVideo(data.video)
+    setConsolidatedVideo(video)
+    if (data.pending || ['submitting', 'rendering', 'planned'].includes(video.state)) {
+      if (consolidatedVideoPollRef.current) clearTimeout(consolidatedVideoPollRef.current)
+      consolidatedVideoPollRef.current = setTimeout(() => {
+        consolidatedVideoPollRef.current = null
+        void syncConsolidatedSmartSpaceVideo({ clientRequestId, action: 'consolidated_video_status' })
+      }, 5000)
     }
   }, [])
   const activeJobKey = getVirtualStagingJourneySessionKey(journey.id)
@@ -719,6 +748,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current)
     for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer)
     furnishVideoPollsRef.current.clear()
+    if (consolidatedVideoPollRef.current) clearTimeout(consolidatedVideoPollRef.current)
     if (presenterReferenceRef.current?.preview) URL.revokeObjectURL(presenterReferenceRef.current.preview)
   }, [])
   useEffect(() => {
@@ -750,7 +780,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
             clearRecovery: () => sessionStorage.removeItem(activeJobKey),
             startPolling: jobId => {
               recoveryStartedJobIdRef.current = jobId
-              setMessage(lifeBrokerCopy('resuming'))
+              setMessage(journeyProgressCopy('recovering'))
               poll(jobId)
             },
           })
@@ -771,7 +801,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (recoveryStartedJobIdRef.current === stored.jobId) return
     recoveryStartedJobIdRef.current = stored.jobId
     setStatus('generating')
-    setMessage(lifeBrokerCopy('resuming'))
+    setMessage(journeyProgressCopy('recovering'))
     poll(stored.jobId)
   }, [activeJobKey, cta, ctaEnabled, includePhone, isBrokerPresentation, isFurnishRenovate, isLifeInProperty, phone, property])
 
@@ -789,7 +819,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 
     const recover = async () => {
       setStatus('generating')
-      setMessage(smartSpaceCopy(t, 'virtualStaging.smartSpace.recovering'))
+      setMessage(journeyProgressCopy('recovering'))
       const { data, error } = await supabase.functions.invoke('virtual-staging-image-test', { body: {
         action: 'recover', client_request_id: recovery.clientRequestId,
       } })
@@ -827,7 +857,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
             const recoveredResult = item.status === 'processing' ? { ...materialized, video: base.video, status: 'stage_1_completed' } : { ...materialized, video: base.video }
             if (item.status === 'completed' && item.result?.delivery_status === 'completed') {
               const videoAction = item.video_state === 'not_requested' && !isExplicitRecovery ? 'start_video' : 'video_status'
-              void syncSmartSpaceVideo({ clientRequestId: recovery.clientRequestId, itemIndex: Number(input.itemIndex), action: videoAction })
+              void syncSmartSpaceVideo({ clientRequestId: recovery.clientRequestId, itemIndex: Number(input.itemIndex), action: videoAction, marketing: recovery.delivery || {} })
             }
             return recoveredResult
           } catch {
@@ -837,6 +867,12 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         return item?.status === 'failed' ? { ...base, status: 'failed', error: item.failure_reason || 'generation_failed' } : base
       }))
       setFurnishResults(recoveredResults)
+      const recoveredConsolidated = normalizeSmartSpaceVideo(data.request?.consolidated_video)
+      setConsolidatedVideo(recoveredConsolidated)
+      if ((data.request?.status === 'completed') && recoveredResults.length && recoveredResults.every(item => item.status === 'completed')) {
+        const action = recoveredConsolidated.state === 'not_requested' && !isExplicitRecovery ? 'start_consolidated_video' : 'consolidated_video_status'
+        void syncConsolidatedSmartSpaceVideo({ clientRequestId: recovery.clientRequestId, action })
+      }
       if (['completed', 'failed'].includes(data.request?.status)) {
         setStatus('completed')
         setMessage('')
@@ -847,7 +883,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       furnishRecoveryPollRef.current = setTimeout(recover, 5000)
     }
     void recover()
-  }, [explicitFurnishRecoveryId, furnishRecoveryKey, isFurnishRenovate, reloadProfile, syncSmartSpaceVideo])
+  }, [explicitFurnishRecoveryId, furnishRecoveryKey, isFurnishRenovate, reloadProfile, syncConsolidatedSmartSpaceVideo, syncSmartSpaceVideo])
 
   const addImages = files => {
     const imageLimit = isFurnishRenovate ? FURNISH_RENOVATE_MAX_IMAGES : VIRTUAL_STAGING_MAX_IMAGES
@@ -891,7 +927,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         sessionStorage.removeItem(activeJobKey)
         throw new Error(data.error)
       }
-      setMessage(lifeBrokerCopy('generating')); pollRef.current = setTimeout(() => poll(jobId), 9000)
+      setMessage(journeyProgressCopy('creating')); pollRef.current = setTimeout(() => poll(jobId), 9000)
     } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('completeFailed'), draftLocale)); void reloadProfile() }
   }
 
@@ -923,6 +959,14 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     setMessage('')
 
     const orderedImages = images.slice()
+    // This is delivery-only metadata. It is never sent to the image-edit
+    // provider; the existing video renderer uses it only after the staging
+    // image has been completed.
+    const videoMarketing = {
+      caption: socialOptions.caption ? socialOptions.captionText || '' : '',
+      cta: socialOptions.cta ? getVirtualStagingOptionLabel(cta, t) : '',
+      professionalIdentity: socialOptions.identity && professionalIdentitySelection.enabled === true ? professionalIdentity?.formatted || '' : '',
+    }
     const initialResults = orderedImages.map((image, originalIndex) => ({
       id: image.key,
       originalIndex,
@@ -946,6 +990,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     let preparedSessionId = ''
     let economyPrepared = false
     const recoveryInputs = orderedImages.map((_, itemIndex) => ({ itemIndex, inputPath: '' }))
+    let completedDeliveries = 0
 
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser()
@@ -960,14 +1005,15 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         image_count: orderedImages.length,
         transformation_type: transformationType,
         decoration_style: furnishRenovateRequiresStyle(transformationType) ? decorationStyle : null,
+        delivery_metadata: videoMarketing,
       } })
       if (prepareError || !prepared?.ok) {
-        const preparationFailure = new Error(prepared?.error || smartSpaceCopy(t, 'virtualStaging.smartSpace.startFailed'))
+        const preparationFailure = new Error(prepared?.error || journeyProgressCopy('startFailed'))
         preparationFailure.code = prepared?.code || ''
         throw preparationFailure
       }
       economyPrepared = true
-      if (furnishRecoveryKey) sessionStorage.setItem(furnishRecoveryKey, JSON.stringify(buildSmartSpaceRecovery({ clientRequestId: sessionId, transformationType, decorationStyle, inputs: recoveryInputs })))
+      if (furnishRecoveryKey) sessionStorage.setItem(furnishRecoveryKey, JSON.stringify(buildSmartSpaceRecovery({ clientRequestId: sessionId, transformationType, decorationStyle, inputs: recoveryInputs, delivery: videoMarketing })))
       const failReservedItem = async (itemIndex, reason) => {
         await supabase.functions.invoke('virtual-staging-image-test', { body: {
           action: 'fail_item', client_request_id: sessionId, item_index: itemIndex, reason,
@@ -993,7 +1039,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
           continue
         }
         recoveryInputs[imageIndex] = { itemIndex: imageIndex, inputPath }
-        if (furnishRecoveryKey) sessionStorage.setItem(furnishRecoveryKey, JSON.stringify(buildSmartSpaceRecovery({ clientRequestId: sessionId, transformationType, decorationStyle, inputs: recoveryInputs })))
+        if (furnishRecoveryKey) sessionStorage.setItem(furnishRecoveryKey, JSON.stringify(buildSmartSpaceRecovery({ clientRequestId: sessionId, transformationType, decorationStyle, inputs: recoveryInputs, delivery: videoMarketing })))
 
         updateResult(image.key, { status: 'generating' })
         setStatus('generating')
@@ -1024,9 +1070,11 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
 
         updateResult(image.key, materialized)
         if (materialized.deliveryStatus === 'completed') {
-          void syncSmartSpaceVideo({ clientRequestId: sessionId, itemIndex: imageIndex, action: 'start_video' })
+          completedDeliveries += 1
+          void syncSmartSpaceVideo({ clientRequestId: sessionId, itemIndex: imageIndex, action: 'start_video', marketing: videoMarketing })
         }
       }
+      if (completedDeliveries === orderedImages.length) void syncConsolidatedSmartSpaceVideo({ clientRequestId: sessionId, action: 'start_consolidated_video' })
       setStatus('completed')
       await reloadProfile()
     } catch (error) {
@@ -1036,7 +1084,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         } })))
       }
       setStatus('error')
-      setMessage(getSmartTokenErrorMessage(error, smartSpaceCopy(t, 'virtualStaging.smartSpace.startFailed'), draftLocale))
+      setMessage(getSmartTokenErrorMessage(error, journeyProgressCopy('startFailed'), draftLocale))
       await reloadProfile()
     }
   }
@@ -1092,7 +1140,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
         if (error) throw new Error(lifeBrokerCopy('propertyUploadFailed'))
         imagePaths[imageIndex] = path
       }
-      setStatus('generating'); setMessage(lifeBrokerCopy('generating'))
+      setStatus('generating'); setMessage(journeyProgressCopy('creating'))
       const apiGeneration = isLifeInProperty
         ? buildLifeInPropertyGenerationPayload({ lifeScene, captions: generation.captions, language: draftLocale })
         : buildBrokerPresentationGenerationPayload({ captions: generation.captions, presenterSpeechMode, presenterCustomSpeech, language: draftLocale })
@@ -1109,7 +1157,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('createFailed'), draftLocale)); void reloadProfile() }
   }
 
-  const reset = () => { sessionStorage.removeItem(activeJobKey); if (furnishRecoveryKey) sessionStorage.removeItem(furnishRecoveryKey); clearPendingSmartSpacePublication(window.sessionStorage, user?.id); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishRecoveryStartedRef.current = false; if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current); for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer); furnishVideoPollsRef.current.clear(); journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setUseDestination(''); setSocialOptions(initialSocialOptions); setPresenterReferenceDecision(null); setPresenterSpeechMode('generated'); setPresenterCustomSpeech(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); setProfessionalIdentitySelection({ enabled: null, name_source: null }); conversation.resetConversation(); setStatus('idle'); setMessage(''); setTrialAlreadyUsed(false); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); if (furnishRecoveryKey) sessionStorage.removeItem(furnishRecoveryKey); clearPendingSmartSpacePublication(window.sessionStorage, user?.id); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishRecoveryStartedRef.current = false; if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current); for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer); furnishVideoPollsRef.current.clear(); if (consolidatedVideoPollRef.current) clearTimeout(consolidatedVideoPollRef.current); consolidatedVideoPollRef.current = null; journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setUseDestination(''); setSocialOptions(initialSocialOptions); setPresenterReferenceDecision(null); setPresenterSpeechMode('generated'); setPresenterCustomSpeech(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); setProfessionalIdentitySelection({ enabled: null, name_source: null }); conversation.resetConversation(); setStatus('idle'); setMessage(''); setTrialAlreadyUsed(false); setResult(null); setFurnishResults([]); setConsolidatedVideo(normalizeSmartSpaceVideo(null)); setHasAttemptedFurnishGeneration(false) }
   const smartSpacePublication = user?.id ? {
     enabled: true,
     loadConnection: () => getMetaConnectionStatus(supabase),
@@ -1136,7 +1184,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       propertyFacts,
       property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale: draftLocale, market: draftMarket })).join(' · '),
     ].filter(Boolean).join('\n')
-    return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} socialOptions={{ ...socialOptions, destination: useDestination, propertySummary, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
+    return <FurnishRenovateDelivery results={furnishResults} consolidatedVideo={consolidatedVideo} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} socialOptions={{ ...socialOptions, destination: useDestination, propertySummary, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
   }
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'

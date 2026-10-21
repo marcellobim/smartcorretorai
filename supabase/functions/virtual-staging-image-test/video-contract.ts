@@ -1,4 +1,4 @@
-export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 4
+export const SMART_SPACE_VIDEO_CONTRACT_VERSION = 5
 export const SMART_SPACE_VIDEO_WIDTH = 720
 export const SMART_SPACE_VIDEO_HEIGHT = 1280
 export const SMART_SPACE_VIDEO_FRAME_RATE = 25
@@ -20,10 +20,17 @@ export type SmartSpaceVideoScene = {
 }
 
 export type SmartSpaceVideoPlan = {
-  version: 4
+  version: 5
   action: string
   durationSeconds: number
   scenes: SmartSpaceVideoScene[]
+  marketing: SmartSpaceVideoMarketing
+}
+
+export type SmartSpaceVideoMarketing = {
+  caption: string
+  cta: string
+  professionalIdentity: string
 }
 
 const LABELS: Record<string, string> = {
@@ -40,7 +47,20 @@ function cleanPath(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-export function buildSmartSpaceVideoPlan(result: StoredResult): SmartSpaceVideoPlan | null {
+const cleanMarketingText = (value: unknown, maximum: number) => typeof value === 'string'
+  ? value.trim().replace(/\s{3,}/g, ' ').slice(0, maximum)
+  : ''
+
+export function normalizeSmartSpaceVideoMarketing(value: unknown): SmartSpaceVideoMarketing {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  return {
+    caption: cleanMarketingText(source.caption, 480),
+    cta: cleanMarketingText(source.cta, 140),
+    professionalIdentity: cleanMarketingText(source.professionalIdentity, 180),
+  }
+}
+
+export function buildSmartSpaceVideoPlan(result: StoredResult, marketing: unknown = {}): SmartSpaceVideoPlan | null {
   if (!result || result.delivery_status !== 'completed') return null
   const inputPath = cleanPath(result.input_path)
   const stages = Array.isArray(result.stages) ? result.stages as StoredStage[] : []
@@ -63,6 +83,34 @@ export function buildSmartSpaceVideoPlan(result: StoredResult): SmartSpaceVideoP
     action: typeof result.action === 'string' ? result.action : '',
     durationSeconds: scenes.length === 3 ? 8 : 6,
     scenes,
+    marketing: normalizeSmartSpaceVideoMarketing(marketing),
+  }
+}
+
+/** A concise campaign video: original and final transformation for every image. */
+export function buildSmartSpaceConsolidatedVideoPlan(items: Array<Record<string, unknown>>, marketing: unknown = {}): SmartSpaceVideoPlan | null {
+  if (!Array.isArray(items) || items.length < 1 || items.length > 5) return null
+  const scenes: SmartSpaceVideoScene[] = []
+  for (const item of [...items].sort((left, right) => Number(left.item_index) - Number(right.item_index))) {
+    const result = item?.result && typeof item.result === 'object' ? item.result as StoredResult : null
+    if (!result || result.delivery_status !== 'completed') return null
+    const inputPath = cleanPath(result.input_path)
+    const stages = Array.isArray(result.stages) ? result.stages as StoredStage[] : []
+    const finalStage = stages.at(-1)
+    const finalPath = cleanPath(finalStage?.output_path)
+    if (!inputPath || !finalPath) return null
+    const number = Number(item.item_index) + 1
+    scenes.push(
+      { kind: `original-${number}`, label: 'Before', storagePath: inputPath },
+      { kind: `result-${number}`, label: 'After', storagePath: finalPath },
+    )
+  }
+  return {
+    version: SMART_SPACE_VIDEO_CONTRACT_VERSION,
+    action: 'consolidated_transformation',
+    durationSeconds: scenes.length * 2.5,
+    scenes,
+    marketing: normalizeSmartSpaceVideoMarketing(marketing),
   }
 }
 
@@ -82,14 +130,15 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
   plan.scenes.forEach((scene, index) => {
     const time = index * sceneDuration
     const transition = [{ time: 0, duration: index === 0 ? 0.3 : 0.45, easing: 'cubic-in-out', type: 'fade', ...(index > 0 ? { transition: true } : {}) }]
-    // A single centered cover layer fills the vertical canvas without distortion.
+    // Preserve the complete property image. A neutral matte fills the vertical
+    // canvas instead of cropping the room to force a 9:16 cover treatment.
     elements.push({
       type: 'image',
       track: 1,
       time,
       duration: sceneDuration,
       source: sourceUrls[index],
-      fit: 'cover',
+      fit: 'contain',
       x: '50%',
       y: '50%',
       width: '100%',
@@ -98,13 +147,49 @@ export function buildSmartSpaceRenderScript(plan: SmartSpaceVideoPlan, sourceUrl
     })
   })
 
+  const textElements: Record<string, unknown>[] = []
+  const addText = (name: string, text: string, time: number, duration: number, y: string, fontSize: string, emphasis = false) => {
+    if (!text) return
+    textElements.push({
+      name,
+      type: 'text',
+      track: 2,
+      time,
+      duration,
+      x: '50%',
+      y,
+      width: '88%',
+      height: emphasis ? '16%' : '12%',
+      x_alignment: '50%',
+      y_alignment: '50%',
+      text,
+      fill_color: '#ffffff',
+      font_family: 'Inter',
+      font_weight: 700,
+      font_size: fontSize,
+      line_height: '112%',
+      text_wrap: true,
+      background_color: emphasis ? 'rgba(5, 30, 18, 0.94)' : 'rgba(5, 30, 18, 0.82)',
+      background_x_padding: '14%',
+      background_y_padding: '14%',
+      background_border_radius: '18%',
+      animations: [{ duration: 0.3, easing: 'quadratic-out', type: 'fade' }],
+    })
+  }
+  const closingDuration = Math.min(2.5, plan.durationSeconds)
+  const closingTime = Math.max(0, plan.durationSeconds - closingDuration)
+  addText('Campaign-Caption', plan.marketing.caption, 0, plan.durationSeconds, '84%', '3.8 vmin')
+  addText('Campaign-CTA', plan.marketing.cta, closingTime, closingDuration, plan.marketing.professionalIdentity ? '72%' : '78%', '5.0 vmin', true)
+  addText('Professional-Identity', plan.marketing.professionalIdentity, closingTime, closingDuration, plan.marketing.cta ? '87%' : '80%', '3.4 vmin')
+
   return {
     output_format: 'mp4',
     width: SMART_SPACE_VIDEO_WIDTH,
     height: SMART_SPACE_VIDEO_HEIGHT,
     frame_rate: SMART_SPACE_VIDEO_FRAME_RATE,
     duration: plan.durationSeconds,
-    elements,
+    background_color: '#0f172a',
+    elements: [...elements, ...textElements],
   }
 }
 

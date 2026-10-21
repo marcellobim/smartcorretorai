@@ -122,7 +122,7 @@ serve(withCors(async (request) => {
       if (error) throw new Error('storage_upload_failed')
     },
     now: () => Date.now(),
-    prepareEconomy: async ({ userId, clientRequestId, imageCount, transformationType, decorationStyle }) => {
+    prepareEconomy: async ({ userId, clientRequestId, imageCount, transformationType, decorationStyle, deliveryMetadata }) => {
       const sku = quoteEconomicSku('virtual_staging', 'image')
       if (sku.smartTokenCost !== 30) throw new Error('virtual_staging_catalog_mismatch')
       const { data, error } = await supabase.rpc('prepare_smart_space_request', {
@@ -131,10 +131,38 @@ serve(withCors(async (request) => {
         p_catalog_version: ECONOMIC_CATALOG_VERSION,
       })
       if (error) throw new Error(error.message)
-      return Array.isArray(data) ? data[0] : data
+      const prepared = Array.isArray(data) ? data[0] : data
+      const normalizedDeliveryMetadata = {
+        caption: typeof deliveryMetadata.caption === 'string' ? deliveryMetadata.caption.trim().slice(0, 480) : '',
+        cta: typeof deliveryMetadata.cta === 'string' ? deliveryMetadata.cta.trim().slice(0, 140) : '',
+        professionalIdentity: typeof deliveryMetadata.professionalIdentity === 'string' ? deliveryMetadata.professionalIdentity.trim().slice(0, 180) : '',
+      }
+      const { data: requestRow, error: requestError } = await supabase
+        .from('virtual_staging_image_requests')
+        .select('delivery_metadata')
+        .eq('user_id', userId)
+        .eq('client_request_id', clientRequestId)
+        .single()
+      if (requestError) throw new Error(requestError.message)
+      const existing = requestRow?.delivery_metadata && typeof requestRow.delivery_metadata === 'object'
+        ? requestRow.delivery_metadata as Record<string, unknown>
+        : {}
+      const hasExistingMetadata = Object.values(existing).some(value => typeof value === 'string' && value.trim())
+      if (hasExistingMetadata && JSON.stringify(existing) !== JSON.stringify(normalizedDeliveryMetadata)) {
+        throw new Error('smart_space_delivery_metadata_mismatch')
+      }
+      if (!hasExistingMetadata) {
+        const { error: metadataError } = await supabase
+          .from('virtual_staging_image_requests')
+          .update({ delivery_metadata: normalizedDeliveryMetadata })
+          .eq('user_id', userId)
+          .eq('client_request_id', clientRequestId)
+        if (metadataError) throw new Error(metadataError.message)
+      }
+      return prepared
     },
     recoverEconomy: async ({ userId, clientRequestId }) => {
-      const requestFields = 'id,client_request_id,status,image_count,completed_count,failed_count,transformation_type,decoration_style,unit_cost'
+      const requestFields = 'id,client_request_id,status,image_count,completed_count,failed_count,transformation_type,decoration_style,unit_cost,delivery_metadata'
       let { data: requestRow, error: requestError } = await supabase
         .from('virtual_staging_image_requests')
         .select(requestFields)
@@ -167,7 +195,13 @@ serve(withCors(async (request) => {
         .eq('request_id', requestRow.id)
         .order('item_index', { ascending: true })
       if (itemsError) throw new Error(itemsError.message)
-      return { request: requestRow, items: items ?? [] }
+      const { data: consolidatedVideo, error: consolidatedVideoError } = await supabase
+        .from('virtual_staging_consolidated_videos')
+        .select('state,renderer,render_id,output_path,failure_reason,claim_token')
+        .eq('request_id', requestRow.id)
+        .maybeSingle()
+      if (consolidatedVideoError && !/relation .* does not exist/i.test(consolidatedVideoError.message)) throw new Error(consolidatedVideoError.message)
+      return { request: { ...requestRow, consolidated_video: consolidatedVideo ?? null }, items: items ?? [] }
     },
     claimStage: async ({ userId, clientRequestId, itemIndex, stage }) => {
       const { data, error } = await supabase.rpc('claim_smart_space_stage', {
@@ -219,13 +253,62 @@ serve(withCors(async (request) => {
       recoverItem: async ({ userId, clientRequestId, itemIndex }) => {
         const { data, error } = await supabase
           .from('virtual_staging_image_items')
-          .select('id,item_index,status,stage_state,result,video_state,video_renderer,video_render_id,video_output_path,video_failure_reason,video_claim_token,virtual_staging_image_requests!inner(user_id,client_request_id)')
+          .select('id,item_index,status,stage_state,result,video_state,video_renderer,video_render_id,video_output_path,video_failure_reason,video_claim_token,virtual_staging_image_requests!inner(user_id,client_request_id,delivery_metadata)')
           .eq('virtual_staging_image_requests.user_id', userId)
           .eq('virtual_staging_image_requests.client_request_id', clientRequestId)
           .eq('item_index', itemIndex)
           .maybeSingle()
         if (error) throw new Error(error.message)
         return data
+      },
+      recoverConsolidatedVideo: async ({ userId, clientRequestId }) => {
+        const { data: request, error: requestError } = await supabase
+          .from('virtual_staging_image_requests')
+          .select('id,client_request_id,delivery_metadata')
+          .eq('user_id', userId)
+          .eq('client_request_id', clientRequestId)
+          .maybeSingle()
+        if (requestError) throw new Error(requestError.message)
+        if (!request) return null
+        const { data: items, error: itemsError } = await supabase
+          .from('virtual_staging_image_items')
+          .select('item_index,status,stage_state,result')
+          .eq('request_id', request.id)
+          .order('item_index', { ascending: true })
+        if (itemsError) throw new Error(itemsError.message)
+        const { data: video, error: videoError } = await supabase
+          .from('virtual_staging_consolidated_videos')
+          .select('state,renderer,render_id,output_path,failure_reason,claim_token')
+          .eq('request_id', request.id)
+          .maybeSingle()
+        if (videoError) throw new Error(videoError.message)
+        return { request, items: items ?? [], video }
+      },
+      claimConsolidatedVideo: async ({ userId, clientRequestId, idempotencyKey }) => {
+        const { data, error } = await supabase.rpc('claim_smart_space_consolidated_video_render', {
+          p_user_id: userId, p_client_request_id: clientRequestId, p_idempotency_key: idempotencyKey,
+        })
+        if (error) throw new Error(error.message)
+        const row = Array.isArray(data) ? data[0] : data
+        return { video: row?.returned_video ?? {}, claimed: row?.claimed === true, claimToken: row?.claim_token ?? null }
+      },
+      registerConsolidatedVideo: async ({ userId, clientRequestId, claimToken, renderId }) => {
+        const { error } = await supabase.rpc('register_smart_space_consolidated_video_render', {
+          p_user_id: userId, p_client_request_id: clientRequestId, p_claim_token: claimToken, p_render_id: renderId,
+        })
+        if (error) throw new Error(error.message)
+      },
+      completeConsolidatedVideo: async ({ userId, clientRequestId, claimToken, outputPath }) => {
+        const { error } = await supabase.rpc('complete_smart_space_consolidated_video_render', {
+          p_user_id: userId, p_client_request_id: clientRequestId, p_claim_token: claimToken, p_output_path: outputPath,
+        })
+        if (error) throw new Error(error.message)
+      },
+      failConsolidatedVideo: async ({ userId, clientRequestId, claimToken, reason, retryable }) => {
+        const { error } = await supabase.rpc('fail_smart_space_consolidated_video_render', {
+          p_user_id: userId, p_client_request_id: clientRequestId, p_claim_token: claimToken, p_reason: reason, p_retryable: retryable,
+        })
+        if (error) throw new Error(error.message)
       },
       claimVideo: async ({ userId, clientRequestId, itemIndex, idempotencyKey }) => {
         const { data, error } = await supabase.rpc('claim_smart_space_video_render', {

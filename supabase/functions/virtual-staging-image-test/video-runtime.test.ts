@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildSmartSpaceRenderScript,
+  buildSmartSpaceConsolidatedVideoPlan,
   buildSmartSpaceVideoPlan,
   estimateSmartSpaceCreatomateCredits,
   SMART_SPACE_VIDEO_HEIGHT,
@@ -13,7 +14,7 @@ const userId = '11111111-1111-4111-8111-111111111111'
 const clientRequestId = '33333333-3333-4333-8333-333333333333'
 const itemId = '22222222-2222-4222-8222-222222222222'
 
-function completedResult(action: string, stages: Array<[string, string]>) {
+function completedResult(action: string, stages: ReadonlyArray<readonly [string, string]>) {
   return {
     action,
     delivery_status: 'completed',
@@ -32,7 +33,7 @@ test('as quatro ações geram sequências determinísticas de dois ou três esta
   for (const [action, stages, labels] of cases) {
     const plan = buildSmartSpaceVideoPlan(completedResult(action, [...stages]))
     assert.ok(plan)
-    assert.equal(plan.version, 4)
+    assert.equal(plan.version, 5)
     assert.deepEqual(plan.scenes.map(scene => scene.label), labels)
     assert.equal(plan.durationSeconds, labels.length === 3 ? 8 : 6)
     const script = buildSmartSpaceRenderScript(plan, plan.scenes.map((_, index) => `https://storage.test/${index}.jpg`))
@@ -42,15 +43,32 @@ test('as quatro ações geram sequências determinísticas de dois ou três esta
     const images = script.elements.filter(element => element.type === 'image')
     const textElements = script.elements.filter(element => element.type === 'text')
     assert.equal(images.length, plan.scenes.length)
-    assert.equal(images.every(element => element.track === 1 && element.fit === 'cover' && element.x === '50%' && element.y === '50%' && element.width === '100%' && element.height === '100%'), true)
+    assert.equal(images.every(element => element.track === 1 && element.fit === 'contain' && element.x === '50%' && element.y === '50%' && element.width === '100%' && element.height === '100%'), true)
     assert.equal(images.every(element => !('blur_radius' in element) && !('blur_mode' in element) && !('color_overlay' in element) && !('border_radius' in element) && !('shadow_color' in element) && !('shadow_blur' in element) && !('shadow_y' in element)), true)
     assert.equal(textElements.length, 0)
     assert.deepEqual(images.map(element => element.time), plan.scenes.map((_, index) => index * (plan.durationSeconds / plan.scenes.length)))
-    assert.equal(JSON.stringify(script).includes('contain'), false)
+    assert.equal(JSON.stringify(script).includes('contain'), true)
     assert.equal(JSON.stringify(script).includes('SMART SPACE'), false)
     assert.equal(labels.some(label => JSON.stringify(script).includes(label)), false)
     assert.equal(JSON.stringify(script).includes('audio'), false)
   }
+})
+
+test('vídeo consolidado preserva a ordem Antes/Depois do lote e aplica somente os overlays escolhidos', () => {
+  const items = [0, 1, 2].map(itemIndex => ({
+    item_index: itemIndex,
+    result: completedResult('remove_furniture', [['free_space', `out/${itemIndex}-free.jpg`]]),
+  }))
+  const plan = buildSmartSpaceConsolidatedVideoPlan(items, {
+    caption: 'Veja esta transformação.', cta: 'Agende uma visita', professionalIdentity: 'Ana Silva · CRECI 123',
+  })!
+  assert.equal(plan.scenes.length, 6)
+  assert.deepEqual(plan.scenes.map(scene => scene.label), ['Before', 'After', 'Before', 'After', 'Before', 'After'])
+  assert.equal(plan.durationSeconds, 15)
+  const script = buildSmartSpaceRenderScript(plan, plan.scenes.map((_, index) => `https://storage.test/${index}.jpg`))
+  const text = script.elements.filter(element => element.type === 'text')
+  assert.deepEqual(text.map(element => element.name), ['Campaign-Caption', 'Campaign-CTA', 'Professional-Identity'])
+  assert.equal(JSON.stringify(script).includes('audio'), false)
 })
 
 test('render 720x1280 curto custa dois créditos e não altera preço de imagem', () => {

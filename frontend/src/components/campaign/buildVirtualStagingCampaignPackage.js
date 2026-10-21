@@ -27,6 +27,7 @@ export function mergeVirtualStagingCampaignHashtags(campaignPackage, generatedHa
     highlights: campaignPackage?.highlights,
     cta: campaignPackage?.cta,
     language: campaignPackage?.language,
+    brand: campaignPackage?.brand,
   })
   return {
     ...campaignPackage,
@@ -53,7 +54,15 @@ export function buildVirtualStagingCampaignPackage({ property, language, cta, ph
     `${localizedHighlights[0] || subject}.\n\n${subject}.\n\n${detail}\n\n${close}`,
     `${subject}.\n\n${localizedHighlights.slice(0,3).join(' · ') || detail}\n\n${close}`,
   ]
-  const hashtags = normalizeOfficialHashtags(generatedHashtags, { purpose:property.purpose, propertyType:property.type, propertyStage:property.stage, city:property.city, district:property.district, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, highlights:property.highlights, cta:localizedCta, language:socialLanguage })
+  const hashtags = normalizeOfficialHashtags(generatedHashtags, {
+    purpose: property.purpose, propertyType: property.type, propertyStage: property.stage,
+    city: property.city, district: property.district, state: property.state,
+    bedrooms: property.bedrooms, suites: property.suites, parkingSpaces: property.parkingSpaces,
+    // The product itself is factual campaign context; property facts remain the
+    // only source for every other tag.
+    highlights: ['Virtual Staging', ...(property.highlights || [])],
+    cta: localizedCta, language: socialLanguage, brand: 'SNETIA',
+  })
   const googleAds = buildGoogleAdsDelivery({ purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.bathrooms || property.suites, highlights:localizedHighlights, cta:localizedCta, language:socialLanguage })
-  return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, language:socialLanguage, purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:socialLanguage === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`virtual-staging-${index+1}`,name:`${socialLanguage === 'en-US' ? 'Option' : 'Opção'} ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})), googleAds }
+  return { mediaType:'video', previewUrl:videoUrl, downloadUrl:videoUrl, language:socialLanguage, brand:'SNETIA', purpose:property.purpose, propertyType:property.type, district:property.district, city:property.city, state:property.state, bedrooms:property.bedrooms, suites:property.suites, parkingSpaces:property.parkingSpaces, area:property.area, price:property.price, description:socialLanguage === 'pt-BR' ? property.description : '', highlights:localizedHighlights, cta:localizedCta, phone, contactAuthorized:Boolean(phone), aiCampaigns:variants.map((value,index)=>({id:`virtual-staging-${index+1}`,name:`${socialLanguage === 'en-US' ? 'Option' : 'Opção'} ${index+1}`,instagram:value,facebook:value,whatsapp:value,linkedin:value,hashtags,cta:localizedCta})), googleAds }
 }

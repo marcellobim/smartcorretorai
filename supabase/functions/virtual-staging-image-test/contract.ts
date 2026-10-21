@@ -75,6 +75,28 @@ export const VIRTUAL_STAGING_DECORATION_STYLES = [
   'contemporary',
 ] as const
 
+// Deliberately not part of the accepted runtime contract yet. Keeping these
+// canonical ids separate lets future UI work grow without making unvalidated
+// prompts or prices available to customers.
+export const VIRTUAL_STAGING_FUTURE_ACTIONS = [
+  'furnish_empty_room',
+  'redesign_existing_room',
+  'repurpose_room',
+  'outdoor_enhancement',
+] as const
+
+export const VIRTUAL_STAGING_FUTURE_STYLES = [
+  'modern',
+  'contemporary',
+  'scandinavian',
+  'luxury',
+  'midcentury',
+  'farmhouse',
+  'coastal',
+  'industrial',
+  'minimalist',
+] as const
+
 const VIRTUAL_STAGING_LEGACY_TRANSFORMATION_TYPES = ['empty_or_nearly_empty', 'mixed', 'furnished'] as const
 const VIRTUAL_STAGING_LEGACY_DECORATION_STYLES = ['modern', 'scandinavian', 'sophisticated'] as const
 const VIRTUAL_STAGING_ACCEPTED_TRANSFORMATION_TYPES = [...VIRTUAL_STAGING_TRANSFORMATION_TYPES, ...VIRTUAL_STAGING_LEGACY_TRANSFORMATION_TYPES] as const
@@ -235,9 +257,15 @@ export function buildVirtualStagingPrompt(
   const promptBase = ['remove_furniture', 'clear_area'].includes(resolvedTransformationType)
     ? VIRTUAL_STAGING_REMOVAL_PROMPT_BASE
     : VIRTUAL_STAGING_PROMPT_BASE
+  const stageContract = transformationType === 'remove_and_redecorate' && stage === 'redecorate'
+    ? '\n\nCONTRATO OBRIGATÓRIO DE REDESIGN: esta etapa recebe exclusivamente a imagem de ESPAÇO LIVRE criada na etapa anterior. Não use, não reintroduza e não preserve móveis, decoração ou objetos da fotografia original. Crie a nova decoração do zero somente sobre o espaço limpo, preservando apenas a estrutura arquitetônica fixa.\n'
+    : transformationType === 'remove_and_redecorate' && stage === 'remove'
+      ? '\n\nCONTRATO OBRIGATÓRIO DE REDESIGN: entregue primeiro um ESPAÇO LIVRE completo. Não adicione decoração nesta etapa.\n'
+      : ''
   return promptBase
     .replace('[REGRA DA TRANSFORMAÇÃO]', transformationRule)
     .replace('[REGRA DO ESTILO]', styleRule)
+    + stageContract
 }
 
 export const ALLOWED_INPUT_MIME_TYPES = new Set([

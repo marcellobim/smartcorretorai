@@ -21,6 +21,15 @@ export const FURNISH_RENOVATE_STYLE_OPTIONS = Object.freeze([
   Object.freeze({ id: 'contemporary', label: 'Contemporâneo', description: 'Visual atual, elegante e com presença mais marcante.' }),
 ])
 
+// Future catalog only: these ids are intentionally not offered by the active
+// flow until their prompts, previews, and economic rules are separately approved.
+export const FURNISH_RENOVATE_FUTURE_ACTIONS = Object.freeze([
+  'furnish_empty_room', 'redesign_existing_room', 'repurpose_room', 'outdoor_enhancement',
+])
+export const FURNISH_RENOVATE_FUTURE_STYLES = Object.freeze([
+  'modern', 'contemporary', 'scandinavian', 'luxury', 'midcentury', 'farmhouse', 'coastal', 'industrial', 'minimalist',
+])
+
 const FURNISH_RENOVATE_LEGACY_TRANSFORMATION_LABELS = Object.freeze({
   furnish: 'Mobiliar um ambiente vazio',
   empty_or_nearly_empty: 'Mobiliar ambientes vazios ou quase vazios',

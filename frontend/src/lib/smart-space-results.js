@@ -84,13 +84,18 @@ export function parseSmartSpaceRecovery(value) {
   }
 }
 
-export function buildSmartSpaceRecovery({ clientRequestId, transformationType, decorationStyle, inputs }) {
+export function buildSmartSpaceRecovery({ clientRequestId, transformationType, decorationStyle, inputs, delivery = {} }) {
   return {
     version: SMART_SPACE_RECOVERY_VERSION,
     clientRequestId,
     transformationType,
     decorationStyle: decorationStyle || '',
     inputs: inputs.map(input => ({ itemIndex: input.itemIndex, inputPath: input.inputPath || '' })),
+    delivery: {
+      caption: typeof delivery.caption === 'string' ? delivery.caption.slice(0, 480) : '',
+      cta: typeof delivery.cta === 'string' ? delivery.cta.slice(0, 140) : '',
+      professionalIdentity: typeof delivery.professionalIdentity === 'string' ? delivery.professionalIdentity.slice(0, 180) : '',
+    },
     updatedAt: Date.now(),
   }
 }

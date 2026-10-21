@@ -53,7 +53,7 @@ export type RuntimeDependencies = {
   upload(outputPath: string, bytes: Uint8Array): Promise<void>
   now(): number
   log(event: string, details: Record<string, unknown>): void
-    prepareEconomy(input: { userId: string; clientRequestId: string; imageCount: number; transformationType: string; decorationStyle: string | null }): Promise<Record<string, any>>
+  prepareEconomy(input: { userId: string; clientRequestId: string; imageCount: number; transformationType: string; decorationStyle: string | null; deliveryMetadata: Record<string, unknown> }): Promise<Record<string, any>>
   recoverEconomy(input: { userId: string; clientRequestId: string }): Promise<{ request: Record<string, any> | null; items: Record<string, any>[] }>
   claimStage(input: { userId: string; clientRequestId: string; itemIndex: number; stage: 'single' | 'remove' | 'redecorate' }): Promise<{ item: Record<string, any>; claimed: boolean; claimToken: string | null }>
   checkpointEconomy(input: { userId: string; clientRequestId: string; itemIndex: number; claimToken: string; result: Record<string, unknown>; usage?: SafeUsage; outputSize?: string; estimatedCostUsdMicros?: number }): Promise<void>
@@ -154,18 +154,21 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
       const imageCount = Number(input.image_count)
       const transformationType = String(input.transformation_type ?? '')
       const decorationStyle = input.decoration_style === undefined || input.decoration_style === null ? null : String(input.decoration_style)
+      const deliveryMetadata = input.delivery_metadata && typeof input.delivery_metadata === 'object' && !Array.isArray(input.delivery_metadata)
+        ? input.delivery_metadata as Record<string, unknown>
+        : {}
       const requiresStyle = virtualStagingRequiresStyle(transformationType)
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)
         || !Number.isInteger(imageCount) || imageCount < 1 || imageCount > VIRTUAL_STAGING_MAX_IMAGES
         || !VIRTUAL_STAGING_TRANSFORMATION_TYPES.includes(transformationType as typeof VIRTUAL_STAGING_TRANSFORMATION_TYPES[number])
         || (requiresStyle && !VIRTUAL_STAGING_DECORATION_STYLES.includes(decorationStyle as typeof VIRTUAL_STAGING_DECORATION_STYLES[number]))
         || (!requiresStyle && decorationStyle !== null)
-          || Object.keys(input).some(key => !['action', 'client_request_id', 'image_count', 'transformation_type', 'decoration_style'].includes(key))) {
+          || Object.keys(input).some(key => !['action', 'client_request_id', 'image_count', 'transformation_type', 'decoration_style', 'delivery_metadata'].includes(key))) {
         throw new VirtualStagingTestError('invalid_economic_request', 400, 'Não foi possível preparar esta criação.')
       }
       try {
         const unitCost = getVirtualStagingUnitCost(transformationType)
-        const prepared = await deps.prepareEconomy({ userId: user.id, clientRequestId, imageCount, transformationType, decorationStyle })
+        const prepared = await deps.prepareEconomy({ userId: user.id, clientRequestId, imageCount, transformationType, decorationStyle, deliveryMetadata })
         return response({
           ok: true,
           request: {
@@ -202,8 +205,21 @@ export async function handleVirtualStagingImageTest(request: Request, deps: Runt
           transformation_type: recovered.request.transformation_type,
           decoration_style: recovered.request.decoration_style,
           unit_cost: recovered.request.unit_cost,
+          delivery_metadata: recovered.request.delivery_metadata ?? {},
+          consolidated_video: recovered.request.consolidated_video ?? null,
         },
-        items: recovered.items.map(item => ({ item_index: item.item_index, status: item.status, stage_state: item.stage_state, result: item.result ?? {}, failure_reason: item.failure_reason ?? null })),
+        items: recovered.items.map(item => ({
+          item_index: item.item_index,
+          status: item.status,
+          stage_state: item.stage_state,
+          result: item.result ?? {},
+          failure_reason: item.failure_reason ?? null,
+          video_state: item.video_state ?? 'not_requested',
+          video_renderer: item.video_renderer ?? null,
+          video_render_id: item.video_render_id ?? null,
+          video_output_path: item.video_output_path ?? null,
+          video_failure_reason: item.video_failure_reason ?? null,
+        })),
       })
     }
     if (rawInput && typeof rawInput === 'object' && !Array.isArray(rawInput) && (rawInput as Record<string, unknown>).action === 'fail_item') {
