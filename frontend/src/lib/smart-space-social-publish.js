@@ -24,7 +24,7 @@ const validIdentity = value => (
         : false
 )
 
-export function buildSmartSpaceVideoPublicationIntent({ clientRequestId, itemIndex, previewUrl } = {}) {
+export function buildSmartSpaceVideoPublicationIntent({ clientRequestId, itemIndex, previewUrl, captionSnapshot = '' } = {}) {
   const sourceId = text(clientRequestId)
   const index = Number(itemIndex)
   if (!UUID_PATTERN.test(sourceId) || !Number.isInteger(index) || index < 0 || index > 4 || !/^https:\/\//i.test(text(previewUrl))) {
@@ -36,7 +36,7 @@ export function buildSmartSpaceVideoPublicationIntent({ clientRequestId, itemInd
     mediaAssetId: mediaAssetId(index),
     optionId: OPTION_ID,
     optionLabel: 'Vídeo da transformação',
-    captionSnapshot: '',
+    captionSnapshot: caption(captionSnapshot).slice(0, MAX_CAPTION_LENGTH),
     captionPlaceholder: 'Conte um pouco sobre esta transformação ou sobre o imóvel…',
     mediaName: `Vídeo da transformação ${index + 1}`,
     mediaPreviewUrl: text(previewUrl),
@@ -44,7 +44,7 @@ export function buildSmartSpaceVideoPublicationIntent({ clientRequestId, itemInd
   }
 }
 
-export function buildSmartSpaceImagePublicationIntent({ clientRequestId, itemIndex, stageKind, stageLabel, previewUrl } = {}) {
+export function buildSmartSpaceImagePublicationIntent({ clientRequestId, itemIndex, stageKind, stageLabel, previewUrl, captionSnapshot = '' } = {}) {
   const sourceId = text(clientRequestId)
   const index = Number(itemIndex)
   const kind = text(stageKind)
@@ -58,7 +58,7 @@ export function buildSmartSpaceImagePublicationIntent({ clientRequestId, itemInd
     mediaAssetId: imageMediaAssetId(index, kind),
     optionId: OPTION_ID,
     optionLabel: 'Imagem Snetia Space',
-    captionSnapshot: '',
+    captionSnapshot: caption(captionSnapshot).slice(0, MAX_CAPTION_LENGTH),
     captionPlaceholder: 'Conte um pouco sobre esta transformação ou sobre o imóvel…',
     mediaName: text(stageLabel) || `Resultado Snetia Space ${index + 1}`,
     mediaPreviewUrl: text(previewUrl),

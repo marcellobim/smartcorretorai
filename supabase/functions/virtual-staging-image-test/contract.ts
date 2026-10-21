@@ -93,11 +93,11 @@ export function getVirtualStagingUnitCost(value: string) {
 
 export const VIRTUAL_STAGING_TRANSFORMATION_RULES: Record<VirtualStagingTransformationType, string> = {
   furnish: `Use a regra de mobiliário completo abaixo. O ambiente está vazio ou quase vazio e deve receber uma composição funcional, realista e proporcional, preservando integralmente o imóvel.`,
-  remove_furniture: `Remova visualmente somente móveis soltos e objetos removíveis, incluindo sofás, mesas, cadeiras, camas, racks, armários soltos, tapetes, quadros, objetos decorativos e plantas decorativas.
+  remove_furniture: `Analise a imagem e entregue sempre uma limpeza visual completa do ambiente. Remova móveis, decoração, objetos soltos e excesso visual, incluindo sofás, mesas, cadeiras, camas, racks, armários soltos, tapetes, quadros, objetos decorativos, plantas decorativas e itens pessoais. Mesmo quando o ambiente já parecer vazio, execute a limpeza visual: elimine a decoração e os objetos remanescentes sem adicionar nenhum elemento novo.
 
 Entregue o mesmo ambiente como ESPAÇO LIVRE. Preserve rigorosamente paredes, piso, teto, portas, janelas, esquadrias, tomadas, interruptores, bancadas fixas, armários planejados ou embutidos, louças, metais, eletrodomésticos embutidos, marcenaria fixa, estrutura, perspectiva, geometria, enquadramento e iluminação natural.
 
-Reconstrua de forma visualmente plausível apenas as superfícies que estavam ocultas pelos objetos removidos, sem inventar arquitetura, ampliar o ambiente ou alterar seus limites físicos. Não adicione móveis, decoração, pessoas, textos ou elementos novos.`,
+Reconstrua de forma visualmente plausível apenas as superfícies que estavam ocultas pelos objetos removidos, sem inventar arquitetura, ampliar o ambiente ou alterar seus limites físicos. O resultado deve parecer limpo, vazio e pronto para uma futura decoração, sem adicionar móveis, decoração, pessoas, textos ou elementos novos.`,
   remove_and_redecorate: `Esta ação é executada em duas etapas independentes. Na primeira etapa, remova os móveis seguindo integralmente a regra de REMOVER MÓVEIS. Na segunda etapa, use exclusivamente a imagem de espaço livre produzida na primeira etapa e aplique a regra de MOBILIAR, criando uma composição realmente nova.`,
   clear_area: `Limpe visualmente a área removendo somente entulho, objetos soltos, resíduos, vegetação invasiva ou claramente removível e estruturas provisórias não permanentes que dificultem a leitura do espaço disponível.
 

@@ -28,21 +28,27 @@ test('keeps only the discrete question counter and final review in the conversat
   assert.doesNotMatch(page, /journeySteps|visualStep|summaryItems=\{reviewItems\}/)
 })
 
-test('maps transformation, style and images directly to review', () => {
+test('keeps the approved destination branch after the images', () => {
   assert.deepEqual(
     FURNISH_RENOVATE_QUESTIONS.map(([id, step]) => [id, step]),
     [
       ['transformation_type', 1],
       ['decoration_style', 2],
       ['images', 3],
-      ['review', 4],
+      ['use_destination', 4],
+      ['social_options', 5],
+      ['cta', 5],
+      ['phone', 5],
+      ['professional_identity', 5],
+      ['review', 6],
     ],
   )
 })
 
-test('keeps the AI notice inside review without an extra conversational step', () => {
-  assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.at(-1), ['review', 4, 'Revise seu projeto'])
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
+test('keeps the AI notice inside final review without a dedicated step', () => {
+  assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.at(-1), ['review', 6, 'Revise seu projeto'])
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'use_destination')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'use_destination', answerId: 'portal', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
   assert.doesNotMatch(page, /id === 'ai_notice'/)
   assert.match(page, /furnishCopy\.reviewNotice/)
 })
@@ -61,7 +67,7 @@ test('keeps the image result as Before and After with its private download', () 
   assert.match(imageDelivery, /\{item\.label\}[\s\S]*<img src=\{item\.src\}/)
   assert.match(imageDelivery, /downloadFurnishRenovateResult\(result, stage\)/)
   assert.match(imageDelivery, /\{copy\.download\} \{stageLabel\(stage\)\.toLocaleLowerCase/)
-  assert.doesNotMatch(imageDelivery, /CampaignPackage/)
+  assert.match(imageDelivery, /isSocial && socialOptions\?\.caption && caption && <CampaignPackage/)
 })
 
 test('preserves the existing generation endpoints without selecting providers in the frontend', () => {

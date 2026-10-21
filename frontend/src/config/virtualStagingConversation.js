@@ -56,12 +56,26 @@ const BROKER_PRESENTATION_NEXT_QUESTION = Object.freeze({
 const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({
   transformation_type: 'decoration_style',
   decoration_style: 'images',
-  images: 'review',
+  images: 'use_destination',
+  use_destination: 'review',
+  social_options: 'review',
+  cta: 'review',
+  phone: 'review',
+  professional_identity: 'review',
 })
 
-export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '' }) {
+export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '', socialOptions = {} }) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
     if (questionId === 'transformation_type') return furnishRenovateRequiresStyle(answerId) ? 'decoration_style' : 'images'
+    if (questionId === 'use_destination') return answerId === 'social' ? 'social_options' : 'review'
+    if (questionId === 'social_options') {
+      if (socialOptions.cta) return 'cta'
+      if (socialOptions.phone) return 'phone'
+      if (socialOptions.identity) return 'professional_identity'
+      return 'review'
+    }
+    if (questionId === 'cta') return socialOptions.phone ? 'phone' : socialOptions.identity ? 'professional_identity' : 'review'
+    if (questionId === 'phone') return socialOptions.identity ? 'professional_identity' : 'review'
     return FURNISH_RENOVATE_NEXT_QUESTION[questionId] || 'review'
   }
   if (journeyId === LIFE_IN_PROPERTY_JOURNEY_ID) return LIFE_IN_PROPERTY_NEXT_QUESTION[questionId] || 'review'

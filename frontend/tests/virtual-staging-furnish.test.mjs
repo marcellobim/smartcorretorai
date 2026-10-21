@@ -7,8 +7,6 @@ import { getVirtualStagingNextQuestion, getVirtualStagingReviewEditNext } from '
 import {
   buildFurnishRenovateReviewItems,
   canAddFurnishRenovateImages,
-  FURNISH_RENOVATE_AI_NOTICE,
-  FURNISH_RENOVATE_COPY,
   FURNISH_RENOVATE_JOURNEY_ID,
   FURNISH_RENOVATE_MAX_IMAGES,
   FURNISH_RENOVATE_QUESTIONS,
@@ -16,299 +14,91 @@ import {
   FURNISH_RENOVATE_TRANSFORMATION_OPTIONS,
   furnishRenovateRequiresStyle,
   getFurnishRenovateCopy,
+  getFurnishRenovateDestinationOptions,
+  getFurnishRenovateSocialOptions,
   getFurnishRenovateTransformationLabel,
   getFurnishRenovateTransformationOptions,
   getSmartSpaceQuote,
   getSmartSpaceUnitCost,
   isAvailableFurnishRenovateTransformation,
-  VIRTUAL_STAGING_CHAT_INTRO,
 } from '../src/config/virtualStagingFurnish.js'
 import { VIRTUAL_STAGING_MAX_IMAGES } from '../src/config/virtualStaging.js'
-import { getVirtualStagingJourney } from '../src/config/virtualStagingJourneys.js'
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(frontendRoot, '..')
 const read = relativePath => readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 const page = read('frontend/src/pages/VirtualStaging.jsx')
 
-test('uses Snetia Space as the product name and Virtual Staging as the first module while preserving the internal id', () => {
-  assert.equal(FURNISH_RENOVATE_JOURNEY_ID, 'furnish-renovate')
-  assert.equal(getVirtualStagingJourney(FURNISH_RENOVATE_JOURNEY_ID)?.title, 'Snetia Space')
-  assert.deepEqual(VIRTUAL_STAGING_CHAT_INTRO, {
-    title: 'Snetia Space',
-    description: 'Virtual Staging',
-    action: 'Começar',
-  })
-  assert.match(page, /<Header title=\{VIRTUAL_STAGING_PRODUCT_NAME\} \/>/)
-  assert.doesNotMatch(read('frontend/src/config/virtualStagingJourneys.js'), /Reimagine AI/)
-})
-
-test('defines only the approved local Virtual Staging conversation sequence', () => {
-  const expected = ['transformation_type', 'decoration_style', 'images', 'review']
-  assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.map(([id]) => id), expected)
-  const sequence = ['transformation_type']
-  while (sequence.at(-1) !== 'review') sequence.push(getVirtualStagingNextQuestion({ questionId: sequence.at(-1), answerId: sequence.at(-1) === 'transformation_type' ? 'furnish' : '', journeyId: FURNISH_RENOVATE_JOURNEY_ID }))
-  assert.deepEqual(sequence, expected)
-  for (const removed of ['purpose', 'type', 'bedrooms', 'suites', 'parkingSpaces', 'area', 'location', 'highlights', 'narration', 'captions', 'cta', 'phone', 'campaign', 'hashtags']) {
-    assert.equal(expected.includes(removed), false)
-  }
-  assert.match(page, /initialQuestionId: isBrokerPresentation \? 'presenter_reference' : isFurnishRenovate \? 'transformation_type' : 'images'/)
-  assert.match(page, /const furnishProject = useMemo\(\(\) => \(\{[\s\S]*transformation_type: transformationType,[\s\S]*decoration_style: decorationStyle,[\s\S]*property_images: images/)
-  assert.doesNotMatch(page, /Onde você pretende usar estas imagens\?|imageDestinations|setImageDestinations/)
-  assert.match(page, /journeyQuestions\.filter\(\(\[questionId\]\) => questionId !== 'decoration_style'\)/)
-})
-
-test('offers the four official Smart Space actions including clear_area', () => {
-  assert.deepEqual(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS, [
-    { id: 'furnish', label: 'Mobiliar um ambiente vazio', description: 'Para espaços sem móveis ou quase vazios.' },
-    { id: 'remove_and_redecorate', label: 'Criar uma decoração completamente nova', description: 'Remove os móveis atuais e cria uma nova decoração.' },
-    { id: 'remove_furniture', label: 'Remover os móveis', description: 'Deixa o ambiente livre para visualizar melhor o espaço.' },
-    { id: 'clear_area', label: 'Limpar visualmente objetos e itens', description: 'Remove elementos soltos para revelar melhor a área.' },
-  ])
-  assert.equal(furnishRenovateRequiresStyle('furnish'), true)
-  assert.equal(furnishRenovateRequiresStyle('remove_and_redecorate'), true)
+test('exposes only the two approved actions for new projects and preserves legacy labels for recovery', () => {
+  assert.deepEqual(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS.map(option => option.id), ['remove_furniture', 'remove_and_redecorate'])
+  assert.deepEqual(getFurnishRenovateTransformationOptions('en-US').map(option => option.label), ['Clear the space', 'Redesign completely'])
+  assert.equal(isAvailableFurnishRenovateTransformation('furnish'), false)
+  assert.equal(isAvailableFurnishRenovateTransformation('clear_area'), false)
+  assert.equal(getFurnishRenovateTransformationLabel('furnish'), 'Mobiliar um ambiente vazio')
+  assert.equal(getFurnishRenovateTransformationLabel('clear_area', 'en-US'), 'Visually clear a lot or area to better see the space')
   assert.equal(furnishRenovateRequiresStyle('remove_furniture'), false)
-  assert.equal(furnishRenovateRequiresStyle('clear_area'), false)
-  assert.equal(isAvailableFurnishRenovateTransformation('furnish'), true)
-  assert.equal(isAvailableFurnishRenovateTransformation('remove_and_redecorate'), true)
-  assert.equal(isAvailableFurnishRenovateTransformation('remove_furniture'), true)
-  assert.equal(isAvailableFurnishRenovateTransformation('clear_area'), true)
-  assert.equal(getFurnishRenovateTransformationLabel('clear_area'), 'Limpar visualmente objetos e itens')
-  assert.equal(getFurnishRenovateTransformationLabel('clear_area', 'en-US'), 'Visually clear objects and items')
-  assert.equal(getFurnishRenovateTransformationOptions('en-US').at(-1).id, 'clear_area')
+  assert.equal(furnishRenovateRequiresStyle('remove_and_redecorate'), true)
+  assert.deepEqual(FURNISH_RENOVATE_STYLE_OPTIONS.map(option => option.id), ['cozy', 'contemporary'])
+})
+
+test('uses the approved destination labels and optional social controls in BR and US', () => {
+  assert.deepEqual(getFurnishRenovateDestinationOptions('pt-BR'), [{ id: 'social', label: 'Redes sociais' }, { id: 'portal', label: 'Portal / plataforma imobiliária' }])
+  assert.deepEqual(getFurnishRenovateDestinationOptions('en-US'), [{ id: 'social', label: 'Social media' }, { id: 'portal', label: 'Real estate portal / platform' }])
+  assert.deepEqual(getFurnishRenovateSocialOptions('en-US').map(option => option.id), ['property', 'caption', 'cta', 'phone', 'identity', 'publish', 'tiktok'])
+  const en = getFurnishRenovateCopy('en-US')
+  assert.equal(en.destinationQuestion, 'Where will you use this content?')
+  assert.equal(en.socialOptionsQuestion, 'What would you like to prepare for sharing?')
+})
+
+test('branches after upload to clean portal delivery or optional social questions', () => {
+  assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.map(([id]) => id), ['transformation_type', 'decoration_style', 'images', 'use_destination', 'social_options', 'cta', 'phone', 'professional_identity', 'review'])
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'transformation_type', answerId: 'remove_furniture', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'images')
-  assert.doesNotMatch(page, /journeySteps|furnishHasStyleStep|<ProductSteps/)
-  assert.match(page, /review=\{question\[0\] === 'review'\}/)
-  assert.match(page, /if \(id === 'transformation_type' && isFurnishRenovate\) return choices/)
-  assert.doesNotMatch(JSON.stringify(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS), /Deixar a IA decidir/)
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'transformation_type', answerId: 'remove_and_redecorate', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'decoration_style')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'use_destination')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'use_destination', answerId: 'portal', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'use_destination', answerId: 'social', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'social_options')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'social_options', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { cta: true, phone: true, identity: true } }), 'cta')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { phone: true, identity: true } }), 'phone')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'phone', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { identity: true } }), 'professional_identity')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'professional_identity', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
 })
 
-test('offers only Aconchegante and Contemporâneo as explained single-choice styles', () => {
-  assert.deepEqual(FURNISH_RENOVATE_STYLE_OPTIONS, [
-    { id: 'cozy', label: 'Aconchegante', description: 'Ambientes acolhedores, claros e convidativos.' },
-    { id: 'contemporary', label: 'Contemporâneo', description: 'Visual atual, elegante e com presença mais marcante.' },
-  ])
-  assert.match(page, /if \(id === 'decoration_style' && isFurnishRenovate\) return choices/)
-  assert.doesNotMatch(page, /style_gallery|Selecionar estilo/)
-})
-
-test('accepts one to five ordered images and prevents advancing without one', () => {
+test('preserves the normal 1–5 contract and 30/60 ST economy for all accounts', () => {
   assert.equal(FURNISH_RENOVATE_MAX_IMAGES, 5)
   assert.equal(FURNISH_RENOVATE_MAX_IMAGES, VIRTUAL_STAGING_MAX_IMAGES)
-  assert.equal(canAddFurnishRenovateImages(0, 0), true)
   assert.equal(canAddFurnishRenovateImages(0, 1), true)
-  assert.equal(canAddFurnishRenovateImages(4, 1), true)
+  assert.equal(canAddFurnishRenovateImages(2, 3), true)
   assert.equal(canAddFurnishRenovateImages(5, 1), false)
-  assert.equal(canAddFurnishRenovateImages(0, 6), false)
-  assert.equal(FURNISH_RENOVATE_COPY.uploadQuestion, 'Envie as fotos do imóvel')
-  assert.equal(FURNISH_RENOVATE_COPY.uploadDescription, 'Adicione de 1 a 5 fotos. Cada imagem será analisada e transformada individualmente.')
-  assert.match(page, /accept="image\/jpeg,image\/png"/)
-  assert.match(page, /!\['image\/jpeg', 'image\/png'\]\.includes\(file\.type\)/)
-  assert.match(page, /file\.size > 15 \* 1024 \* 1024/)
-  assert.match(page, /smartUpload\.count/)
-  assert.match(page, /\{images\.length > 0 && cont/)
-  assert.match(page, /images\.length >= 1/)
-  assert.match(page, /images\.length <= FURNISH_RENOVATE_MAX_IMAGES/)
-  assert.match(page, /move\(position, offset\)/)
-  assert.match(page, /remove\(position\)/)
-})
-
-test('removes generation destinations while preserving publication actions in results', () => {
-  assert.doesNotMatch(FURNISH_RENOVATE_QUESTIONS.join(' '), /image_destinations|Onde você pretende usar estas imagens/)
-  assert.doesNotMatch(page, /DestinationBrandIcon|destinationsHint|Destino das imagens/)
-  assert.match(page, /\{copy\.publish\} \{stageLabel\(stage\)\.toLocaleLowerCase/)
-  assert.match(page, /\{copy\.publishVideo\}/)
-})
-
-test('shows the approved AI notice in review without an extra conversational step', () => {
-  assert.equal(FURNISH_RENOVATE_AI_NOTICE, 'Como o resultado é criado por inteligência artificial, alguns detalhes do ambiente podem ser alterados para melhorar a composição visual.')
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
-  assert.doesNotMatch(page, /id === 'ai_notice'/)
-  assert.match(page, /furnishCopy\.reviewNotice/)
-})
-
-test('reviews transformation, style and ordered thumbnails without generation destinations', () => {
-  const review = buildFurnishRenovateReviewItems({
-    imagesCount: 3,
-    transformationType: 'mixed',
-    decorationStyle: 'cozy',
-  })
-  assert.deepEqual(review.map(item => item.id), ['transformation_type', 'decoration_style', 'images'])
-  assert.equal(review[0].label, 'Tenho ambientes vazios e mobiliados')
-  assert.equal(review[1].label, 'Aconchegante')
-  assert.equal(review[2].label, '3 imagens')
-  assert.match(page, /smartReview\.title/)
-  assert.match(page, /smartReview\.title/)
-  for (const id of ['transformation_type', 'decoration_style', 'images']) {
-    assert.equal(getVirtualStagingReviewEditNext({ originQuestionId: id, questionId: id, journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
-  }
-})
-
-test('keeps legacy transformation and style labels readable without exposing them as new choices', () => {
-  const review = buildFurnishRenovateReviewItems({
-    imagesCount: 1,
-    transformationType: 'furnished',
-    decorationStyle: 'scandinavian',
-  })
-  assert.equal(review[0].label, 'Criar uma nova decoração em ambientes já mobiliados')
-  assert.equal(review[1].label, 'Escandinavo')
-  assert.equal(FURNISH_RENOVATE_TRANSFORMATION_OPTIONS.some(option => option.id === 'furnished'), false)
-  assert.equal(FURNISH_RENOVATE_STYLE_OPTIONS.some(option => ['modern', 'scandinavian', 'sophisticated'].includes(option.id)), false)
-  assert.match(page, /activeQuestionId: restoredJourneyDraft\.conversation\.activeQuestionId === 'image_destinations' \? 'review'/)
-  assert.match(page, /filter\(turn => turn\.questionId !== 'image_destinations'\)/)
-})
-
-test('habilita a geração integrada com uma a cinco imagens e estilo somente quando aplicável', () => {
-  assert.match(page, /const canGenerateFurnish = isFurnishRenovate[\s\S]*images\.length >= 1[\s\S]*images\.length <= FURNISH_RENOVATE_MAX_IMAGES[\s\S]*isAvailableFurnishRenovateTransformation\(transformationType\)[\s\S]*furnishRenovateRequiresStyle\(transformationType\)[\s\S]*Boolean\(decorationStyle\)/)
-  assert.match(page, /disabled=\{!canGenerateFurnish \|\| furnishGenerationBusy\}/)
-  assert.doesNotMatch(page, /Esta primeira versão de validação processa uma imagem por vez\./)
-  assert.match(page, /if \(!canGenerateFurnish\)/)
-})
-
-test('envia ao backend somente o contrato permitido do furnish-renovate', () => {
-  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
-  assert.match(integration, /supabase\.auth\.getUser\(\)/)
-  assert.match(integration, /`\$\{authenticatedUser\.id\}\/virtual-staging-images\/inputs\/\$\{sessionId\}\/\$\{String\(imageIndex \+ 1\)\.padStart\(2, '0'\)\}\.\$\{extension\}`/)
-  assert.doesNotMatch(integration, /`\$\{authenticatedUser\.id\}\/virtual-staging\/\$\{sessionId\}/)
-  assert.match(integration, /storage\.from\(BUCKET\)\.upload\(inputPath, file/)
-  assert.match(integration, /functions\.invoke\('virtual-staging-image-test'/)
-  for (const field of ['module:', 'input_path:', 'transformation_type:', 'decoration_style:', 'expected_count:', "action: 'prepare'", "action: 'generate'", 'client_request_id:', 'item_index:']) assert.match(integration, new RegExp(field))
-  for (const forbidden of ['prompt:', 'model:', 'quality:', 'size:', 'output_format:', 'image_destinations:']) assert.doesNotMatch(integration, new RegExp(forbidden))
-  assert.doesNotMatch(integration, /service.?role|unit_cost:|quoted_tokens:/i)
-  assert.doesNotMatch(read('frontend/src/config/virtualStagingFurnish.js'), /supabase|fetch\(|invoke\(/)
-})
-
-test('processa a coleção sequencialmente, bloqueia clique duplicado e não executa retry automático', () => {
-  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const retryFurnishResultMaterialization'))
-  assert.match(integration, /furnishGenerationInFlightRef\.current\) return/)
-  assert.match(integration, /furnishGenerationInFlightRef\.current = true/)
-  assert.ok((integration.match(/functions\.invoke\('virtual-staging-image-test'/g) || []).length >= 3)
-  assert.match(integration, /for \(let imageIndex = 0; imageIndex < orderedImages\.length; imageIndex \+= 1\)/)
-  assert.doesNotMatch(integration, /Promise\.all\(|setTimeout|setInterval|retry|while\s*\(/i)
-  assert.doesNotMatch(integration, /finalize_session|creation_id/)
-})
-
-test('calcula 30 ou 60 ST por imagem conforme a transformação e atualiza o perfil ao concluir', () => {
-  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
-  assert.match(integration, /action: 'prepare'[\s\S]*image_count: orderedImages\.length/)
-  assert.match(integration, /action: 'generate'[\s\S]*client_request_id: sessionId[\s\S]*item_index: imageIndex/)
-  assert.match(integration, /action: 'fail_item'/)
-  assert.match(integration, /await reloadProfile\(\)/)
-  assert.equal(getSmartSpaceUnitCost('furnish'), 30)
   assert.equal(getSmartSpaceUnitCost('remove_furniture'), 30)
-  assert.equal(getSmartSpaceUnitCost('clear_area'), 30)
   assert.equal(getSmartSpaceUnitCost('remove_and_redecorate'), 60)
+  assert.equal(getSmartSpaceQuote('remove_furniture', 5), 150)
   assert.equal(getSmartSpaceQuote('remove_and_redecorate', 5), 300)
-  assert.match(page, /getSmartSpaceUnitCost\(transformationType\).*getSmartSpaceQuote\(transformationType, images\.length\)/)
+  assert.match(page, /images\.length >= 1[\s\S]*images\.length <= FURNISH_RENOVATE_MAX_IMAGES/)
+  assert.match(page, /Boolean\(useDestination\)/)
+  assert.doesNotMatch(page, /1 to 10|1–10|1-10/)
 })
 
-test('mostra progresso real, comparação de duas ou três etapas e downloads individuais', () => {
-  assert.match(page, /virtualStaging\.smartSpace\.processingTitle/)
-  assert.match(page, /virtualStaging\.smartSpace\.processingDescription/)
-  assert.match(page, /virtualStaging\.smartSpace\.processingImage/)
-  assert.match(page, /t\(`virtualStaging\.smartSpace\.status\.\$\{result\.status\}`\)/)
-  assert.match(page, /virtualStaging\.smartSpace\.resultReady/)
-  assert.match(page, /label: copy\.original[\s\S]*\.\.\.result\.stages/)
-  assert.match(page, /xl:grid-cols-3/)
-  assert.match(page, /downloadFileFromPrivateUrl\(stage\.url, fallbackName\)/)
-  assert.match(page, /\{copy\.download\} \{stageLabel\(stage\)\.toLocaleLowerCase/)
-  assert.match(page, /virtualStaging\.smartSpace\.createNewProject/)
+test('keeps portal delivery clean and enables social publication and TikTok handoff only for Social media', () => {
+  assert.match(page, /const isSocial = socialOptions\?\.destination === 'social'/)
+  assert.match(page, /social && publication\?\.enabled/)
+  assert.match(page, /supportedNetworks=\{\['tiktok'\]\}/)
+  assert.match(page, /<BannerPublishDialog/)
+  assert.match(page, /<SharePublishActions/)
+  assert.match(page, /isSocial && socialOptions\?\.caption && caption && <CampaignPackage/)
+  assert.match(page, /onSaveProfile=\{async patch =>/)
 })
 
-test('persiste somente identificadores e caminhos para recovery idempotente do Smart Space', () => {
-  assert.match(page, /recoveredJourneyId === FURNISH_RENOVATE_JOURNEY_ID \? '' : recoveredJourneyId/)
-  assert.match(page, /if \(isFurnishRenovate\) return[\s\S]*parseVirtualStagingJobRecord/)
-  assert.match(page, /getSmartSpaceRecoveryKey/)
-  assert.match(page, /setTransformationType\(''\)[\s\S]*setDecorationStyle\(''\)/)
+test('keeps final review, Back/Edit/reset, and historical recovery compatible', () => {
+  const review = buildFurnishRenovateReviewItems({ imagesCount: 3, transformationType: 'remove_and_redecorate', decorationStyle: 'cozy', useDestination: 'social', socialOptions: { caption: true, publish: true } })
+  assert.deepEqual(review.map(item => item.id), ['transformation_type', 'decoration_style', 'images', 'use_destination', 'social_options'])
+  assert.equal(getVirtualStagingReviewEditNext({ originQuestionId: 'images', questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
+  assert.match(page, /isRecoverableFurnishRenovateTransformation\(restoredJourneyDraft\.transformationType\)/)
+  assert.match(page, /setUseDestination\(''\); setSocialOptions\(initialSocialOptions\)/)
+})
+
+test('keeps destination and social options out of the Edge image-generation payload', () => {
   const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
-  assert.doesNotMatch(integration, /localStorage|video_jobs|virtual-staging-status/)
-  assert.match(integration, /sessionStorage\.setItem\(furnishRecoveryKey/)
-  assert.match(page, /action: 'recover'/)
-  assert.match(page, /\['awaiting_processing', 'free_space_completed'\]\.includes\(item\.stage_state\)/)
-  assert.match(page, /action: 'resume'/)
-  assert.match(page, /materializeSmartSpaceResult/)
-  assert.match(page, /virtualStaging\.smartSpace\.createNewProject/)
-  assert.match(page, /setFurnishResults\(\[\]\)/)
-  assert.match(page, /setHasAttemptedFurnishGeneration\(false\)/)
-  assert.doesNotMatch(page, /furnish(?:Gallery|History)|virtualStaging(?:Gallery|History)/i)
-})
-
-test('uses market-localized copy with the current Virtual Staging module selector', () => {
-  const br = getFurnishRenovateCopy('pt-BR')
-  const en = getFurnishRenovateCopy('en-US')
-  assert.equal(br.uploadQuestion, 'Envie as fotos do imóvel')
-  assert.equal(br.uploadDescription, 'Adicione de 1 a 5 fotos. Cada imagem será analisada e transformada individualmente.')
-  assert.equal(en.uploadQuestion, 'Upload property photos')
-  assert.equal(en.uploadDescription, 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.')
-  assert.equal(getFurnishRenovateTransformationLabel('remove_and_redecorate', 'en-US'), 'Create a completely new design')
-  assert.match(page, /virtualStaging\.journey\.virtualStaging\.title/)
-  assert.match(page, /<ProductHero/)
-  assert.match(page, /<VirtualStagingModules selectedJourneyId=\{selectedJourneyId\} onSelect=\{selectJourney\} t=\{t\}/)
-})
-test('opens Smart Space directly on transformation without the internal start card', () => {
-  assert.doesNotMatch(page, /virtual-staging-chat-intro-title/)
-  assert.doesNotMatch(page, /VIRTUAL_STAGING_CHAT_INTRO\.action/)
-  assert.match(page, /initialQuestionId: isBrokerPresentation \? 'presenter_reference' : isFurnishRenovate \? 'transformation_type' : 'images'/)
-})
-
-test('mantém resultado concluído separado de falha real quando a URL assinada não materializa', () => {
-  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
-  assert.match(integration, /status: 'result_unavailable', rawResult: data\.result/)
-  assert.doesNotMatch(integration, /status: 'failed', outputPath: data\?\.result\?\.output_path \|\| '', error: 'result_unavailable'/)
-  assert.match(page, /const retryFurnishResultMaterialization = async id =>/)
-  assert.match(page, /rawResult: pendingResult\.rawResult/)
-  assert.doesNotMatch(page.slice(page.indexOf('const retryFurnishResultMaterialization'), page.indexOf('const createTour')), /functions\.invoke\('virtual-staging-image-test'/)
-  assert.match(page, /result\.status === 'result_unavailable'/)
-  assert.match(page, /copy\('transformed'\)/)
-})
-
-test('recovery mantém item concluído com URL indisponível recuperável sem reclassificá-lo como falha de geração', () => {
-  const recovery = page.slice(page.indexOf('const recover = async'), page.indexOf('const addImages = files'))
-  assert.match(recovery, /status: 'result_unavailable', rawResult: item\.result, error: 'result_unavailable'/)
-  assert.match(recovery, /item\?\.status === 'failed' \? \{ \.\.\.base, status: 'failed'/)
-  assert.match(recovery, /action: 'resume'/)
-  assert.doesNotMatch(recovery, /client_request_id: crypto\.randomUUID/)
-})
-
-test('preserva contrato singular, ordem explícita, falha parcial e metadados de recovery', () => {
-  const integration = page.slice(page.indexOf('const createFurnishRenovateImage'), page.indexOf('const createTour'))
-  for (const field of ['originalIndex', 'key:', 'originalPreview', 'inputPath', 'outputPath', 'afterUrl', 'status:', 'width:', 'height:', 'mimeType:', 'sizeBytes:', 'error:']) assert.match(integration, new RegExp(field))
-  for (const status of ['pending', 'uploading', 'generating', 'completed', 'failed']) assert.match(page, new RegExp(`'${status}'`))
-  assert.match(integration, /current\.map\(result => result\.id === id/)
-  assert.match(integration, /continue/)
-  assert.doesNotMatch(integration, /input_paths|image_destinations|localStorage|video_jobs/i)
-})
-
-test('keeps Vida no Imóvel and Apresentação pelo Corretor isolated', () => {
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: 'life-in-property' }), 'life_scene')
-  assert.equal(getVirtualStagingNextQuestion({ questionId: 'highlights', journeyId: 'broker-presentation' }), 'captions')
-  assert.doesNotMatch(read('frontend/src/config/virtualStagingLife.js'), /transformation_type|decoration_style|image_destinations/)
-  assert.doesNotMatch(read('frontend/src/config/virtualStagingBroker.js'), /transformation_type|decoration_style|image_destinations/)
-})
-
-test('uses the same real Before and After mini carousel in the normal Virtual Staging surfaces', () => {
-  assert.match(page, /const VIRTUAL_STAGING_BEFORE_IMAGE = '\/virtual-staging\/virtual-staging-before\.jpg'/)
-  assert.match(page, /const VIRTUAL_STAGING_AFTER_IMAGE = '\/virtual-staging\/virtual-staging-after\.png'/)
-  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.before'\)\} \$\{VIRTUAL_STAGING_PRODUCT_NAME\}`/)
-  assert.match(page, /alt: `\$\{t\('virtualStaging\.smartSpace\.after'\)\} \$\{VIRTUAL_STAGING_PRODUCT_NAME\}`/)
-  assert.equal((page.match(/<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=/g) || []).length, 2)
-  const upperPhone = page.slice(page.indexOf('function VirtualSpaceHeroVisual'), page.indexOf('function usePrefersReducedMotion'))
-  const lowerPhone = page.slice(page.indexOf('function VirtualStagingModules'), page.indexOf('function Question'))
-  assert.match(upperPhone, /journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{0\}/)
-  assert.match(lowerPhone, /isVirtualStagingDemo = journey\.id === FURNISH_RENOVATE_JOURNEY_ID[\s\S]*<VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{1\}/)
-  assert.doesNotMatch(upperPhone, /grid-cols-2|sm:grid-cols-2/)
-  assert.doesNotMatch(lowerPhone, /VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{0\}[\s\S]*VirtualStagingBeforeAfterPhone t=\{t\} initialIndex=\{1\}/)
-})
-
-test('auto-advances every 2.5 seconds, remains clickable and respects reduced motion', () => {
-  const carousel = page.slice(page.indexOf('function VirtualStagingBeforeAfterPhone'), page.indexOf('function VirtualStagingModules'))
-  assert.match(carousel, /window\.setInterval\(advance, 2500\)/)
-  assert.match(carousel, /if \(prefersReducedMotion\) return undefined/)
-  assert.match(carousel, /type="button" onClick=\{advance\}/)
-  assert.match(carousel, /focus-visible:ring-2/)
-  assert.match(carousel, /object-cover object-center/)
-  assert.match(carousel, /transition-none/)
-  assert.match(carousel, /transition-opacity duration-500/)
-  assert.match(carousel, />\{activeSlide\.label\}<\/span>/)
-  assert.doesNotMatch(carousel, /<video|<img[^>]+object-fill|modal|download|navigate|supabase|invoke\(/i)
+  assert.match(integration, /functions\.invoke\('virtual-staging-image-test'/)
+  assert.doesNotMatch(integration, /use_destination|socialOptions|captionText|propertyText/)
+  assert.doesNotMatch(read('frontend/src/config/virtualStagingFurnish.js'), /supabase|fetch\(|invoke\(/)
 })

@@ -12,10 +12,8 @@ export const VIRTUAL_STAGING_CHAT_INTRO = Object.freeze({
 })
 
 export const FURNISH_RENOVATE_TRANSFORMATION_OPTIONS = Object.freeze([
-  Object.freeze({ id: 'furnish', label: 'Mobiliar um ambiente vazio', description: 'Para espaços sem móveis ou quase vazios.' }),
-  Object.freeze({ id: 'remove_and_redecorate', label: 'Criar uma decoração completamente nova', description: 'Remove os móveis atuais e cria uma nova decoração.' }),
-  Object.freeze({ id: 'remove_furniture', label: 'Remover os móveis', description: 'Deixa o ambiente livre para visualizar melhor o espaço.' }),
-  Object.freeze({ id: 'clear_area', label: 'Limpar visualmente objetos e itens', description: 'Remove elementos soltos para revelar melhor a área.' }),
+  Object.freeze({ id: 'remove_furniture', label: 'Limpar o ambiente', description: 'Remove móveis, decoração e objetos soltos para deixar o espaço limpo.' }),
+  Object.freeze({ id: 'remove_and_redecorate', label: 'Redecorar completamente', description: 'Primeiro limpa o ambiente; depois cria uma decoração nova do zero.' }),
 ])
 
 export const FURNISH_RENOVATE_STYLE_OPTIONS = Object.freeze([
@@ -24,6 +22,7 @@ export const FURNISH_RENOVATE_STYLE_OPTIONS = Object.freeze([
 ])
 
 const FURNISH_RENOVATE_LEGACY_TRANSFORMATION_LABELS = Object.freeze({
+  furnish: 'Mobiliar um ambiente vazio',
   empty_or_nearly_empty: 'Mobiliar ambientes vazios ou quase vazios',
   mixed: 'Tenho ambientes vazios e mobiliados',
   furnished: 'Criar uma nova decoração em ambientes já mobiliados',
@@ -37,37 +36,45 @@ const FURNISH_RENOVATE_LEGACY_STYLE_LABELS = Object.freeze({
 })
 
 export const FURNISH_RENOVATE_DESTINATION_OPTIONS = Object.freeze([
-  Object.freeze({ id: 'instagram', label: 'Instagram', brand: 'instagram' }),
-  Object.freeze({ id: 'facebook', label: 'Facebook', brand: 'facebook' }),
-  Object.freeze({ id: 'whatsapp', label: 'WhatsApp', brand: 'whatsapp' }),
-  Object.freeze({ id: 'real_estate_portals', label: 'Portais imobiliários', brand: 'real-estate-portals' }),
-  Object.freeze({ id: 'google_ads', label: 'Google Ads', brand: 'google-ads' }),
-  Object.freeze({ id: 'meta_ads', label: 'Meta Ads', brand: 'meta' }),
+  Object.freeze({ id: 'social', label: 'Redes sociais' }),
+  Object.freeze({ id: 'portal', label: 'Portal / plataforma imobiliária' }),
 ])
 
 export const FURNISH_RENOVATE_AI_NOTICE = 'Como o resultado é criado por inteligência artificial, alguns detalhes do ambiente podem ser alterados para melhorar a composição visual.'
 
 export const FURNISH_RENOVATE_COPY = Object.freeze({
+  transformationQuestion: 'O que você quer fazer com o espaço destas imagens?',
+  styleQuestion: 'Qual estilo você prefere para os ambientes?',
   uploadQuestion: 'Envie as fotos do imóvel',
   uploadDescription: 'Adicione de 1 a 5 fotos. Cada imagem será analisada e transformada individualmente.',
   uploadHint: 'Para melhores resultados, use fotos nítidas, bem iluminadas e que mostrem claramente o ambiente.',
+  destinationQuestion: 'Onde você vai usar este material?',
+  socialOptionsQuestion: 'O que deseja preparar para divulgar?',
+  socialOptionsHelp: 'Tudo é opcional. Selecione apenas o que deseja incluir.',
+  socialProperty: 'Dados do imóvel', socialCaption: 'Legenda', socialCta: 'CTA', socialPhone: 'Telefone', socialIdentity: 'Identificação profissional', socialPublish: 'Publicar no Instagram/Facebook', socialTikTok: 'Enviar para TikTok',
+  reviewQuestion: 'Revise seu projeto',
   reviewNotice: FURNISH_RENOVATE_AI_NOTICE,
   imagesConfirmation: 'Ótimo! As fotos serão usadas na ordem escolhida.',
 })
 
 const FURNISH_RENOVATE_EN_COPY = Object.freeze({
+  transformationQuestion: 'What would you like to do with these spaces?',
+  styleQuestion: 'Which style do you prefer for the spaces?',
   uploadQuestion: 'Upload property photos',
   uploadDescription: 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.',
   uploadHint: 'For best results, use sharp, well-lit photos that clearly show the space.',
+  destinationQuestion: 'Where will you use this content?',
+  socialOptionsQuestion: 'What would you like to prepare for sharing?',
+  socialOptionsHelp: 'Everything is optional. Select only what you want to include.',
+  socialProperty: 'Property details', socialCaption: 'Caption', socialCta: 'CTA', socialPhone: 'Phone', socialIdentity: 'Professional identity', socialPublish: 'Publish to Instagram/Facebook', socialTikTok: 'Send to TikTok',
+  reviewQuestion: 'Review your project',
   reviewNotice: 'Because the result is created with artificial intelligence, some details of the space may change to improve the visual composition.',
   imagesConfirmation: 'Great! The photos will be used in the selected order.',
 })
 
 const FURNISH_RENOVATE_EN_TRANSFORMATION_OPTIONS = Object.freeze([
-  Object.freeze({ id: 'furnish', label: 'Furnish an empty room', description: 'For spaces without furniture or nearly empty.' }),
-  Object.freeze({ id: 'remove_and_redecorate', label: 'Create a completely new design', description: 'Removes current furniture and creates a new design.' }),
-  Object.freeze({ id: 'remove_furniture', label: 'Remove furniture', description: 'Leaves the room open so you can see the space better.' }),
-  Object.freeze({ id: 'clear_area', label: 'Visually clear objects and items', description: 'Removes loose elements to reveal the area more clearly.' }),
+  Object.freeze({ id: 'remove_furniture', label: 'Clear the space', description: 'Removes furniture, décor, and loose objects for a clean space.' }),
+  Object.freeze({ id: 'remove_and_redecorate', label: 'Redesign completely', description: 'First clears the space, then creates a new design from scratch.' }),
 ])
 
 const FURNISH_RENOVATE_EN_STYLE_OPTIONS = Object.freeze([
@@ -76,6 +83,7 @@ const FURNISH_RENOVATE_EN_STYLE_OPTIONS = Object.freeze([
 ])
 
 const FURNISH_RENOVATE_EN_LEGACY_TRANSFORMATION_LABELS = Object.freeze({
+  furnish: 'Furnish an empty room',
   empty_or_nearly_empty: 'Furnish empty or nearly empty rooms', mixed: 'I have empty and furnished rooms', furnished: 'Create a new design in furnished rooms', clear_area: 'Visually clear a lot or area to better see the space',
 })
 const FURNISH_RENOVATE_EN_LEGACY_STYLE_LABELS = Object.freeze({ modern: 'Modern', scandinavian: 'Scandinavian', sophisticated: 'Sophisticated' })
@@ -92,11 +100,35 @@ export function getFurnishRenovateStyleOptions(locale = 'pt-BR') {
   return locale === 'en-US' ? FURNISH_RENOVATE_EN_STYLE_OPTIONS : FURNISH_RENOVATE_STYLE_OPTIONS
 }
 
+export function getFurnishRenovateDestinationOptions(locale = 'pt-BR') {
+  return locale === 'en-US'
+    ? [{ id: 'social', label: 'Social media' }, { id: 'portal', label: 'Real estate portal / platform' }]
+    : FURNISH_RENOVATE_DESTINATION_OPTIONS
+}
+
+export function getFurnishRenovateSocialOptions(locale = 'pt-BR') {
+  const copy = getFurnishRenovateCopy(locale)
+  return [
+    { id: 'property', label: copy.socialProperty },
+    { id: 'caption', label: copy.socialCaption },
+    { id: 'cta', label: copy.socialCta },
+    { id: 'phone', label: copy.socialPhone },
+    { id: 'identity', label: copy.socialIdentity },
+    { id: 'publish', label: copy.socialPublish },
+    { id: 'tiktok', label: copy.socialTikTok },
+  ]
+}
+
 export const FURNISH_RENOVATE_QUESTIONS = Object.freeze([
-  ['transformation_type', 1, 'O que você quer fazer com o espaço destas imagens?'],
-  ['decoration_style', 2, 'Qual estilo você prefere para os ambientes?'],
+  ['transformation_type', 1, FURNISH_RENOVATE_COPY.transformationQuestion],
+  ['decoration_style', 2, FURNISH_RENOVATE_COPY.styleQuestion],
   ['images', 3, FURNISH_RENOVATE_COPY.uploadQuestion],
-  ['review', 4, 'Revise seu projeto'],
+  ['use_destination', 4, FURNISH_RENOVATE_COPY.destinationQuestion],
+  ['social_options', 5, FURNISH_RENOVATE_COPY.socialOptionsQuestion],
+  ['cta', 5, 'Qual chamada deseja usar?'],
+  ['phone', 5, 'Deseja incluir seu telefone profissional?'],
+  ['professional_identity', 5, 'Deseja incluir sua identificação profissional?'],
+  ['review', 6, FURNISH_RENOVATE_COPY.reviewQuestion],
 ])
 
 export function canAddFurnishRenovateImages(currentCount, addedCount) {
@@ -127,6 +159,10 @@ export function isAvailableFurnishRenovateTransformation(value) {
   return FURNISH_RENOVATE_TRANSFORMATION_OPTIONS.some(option => option.id === value)
 }
 
+export function isRecoverableFurnishRenovateTransformation(value) {
+  return isAvailableFurnishRenovateTransformation(value) || Object.prototype.hasOwnProperty.call(FURNISH_RENOVATE_LEGACY_TRANSFORMATION_LABELS, value)
+}
+
 export function getSmartSpaceUnitCost(value) {
   return value === 'remove_and_redecorate' ? 60 : 30
 }
@@ -135,11 +171,15 @@ export function getSmartSpaceQuote(value, imageCount) {
   return getSmartSpaceUnitCost(value) * Math.max(0, Number(imageCount) || 0)
 }
 
-export function buildFurnishRenovateReviewItems({ imagesCount, transformationType, decorationStyle, locale = 'pt-BR' }) {
+export function buildFurnishRenovateReviewItems({ imagesCount, transformationType, decorationStyle, useDestination = '', socialOptions = {}, locale = 'pt-BR' }) {
   const isEnglish = locale === 'en-US'
   return [
     { id: 'transformation_type', displayLabel: isEnglish ? 'Transformation type' : 'Tipo de transformação', label: getFurnishRenovateTransformationLabel(transformationType, locale) },
     ...(furnishRenovateRequiresStyle(transformationType) ? [{ id: 'decoration_style', displayLabel: isEnglish ? 'Style' : 'Estilo', label: getFurnishRenovateStyleLabel(decorationStyle, locale) }] : []),
     { id: 'images', displayLabel: isEnglish ? 'Images' : 'Imagens', label: imagesCount === 1 ? `1 ${isEnglish ? 'image' : 'imagem'}` : imagesCount > 1 ? `${imagesCount} ${isEnglish ? 'images' : 'imagens'}` : '' },
+    ...(useDestination ? [{ id: 'use_destination', displayLabel: isEnglish ? 'Use' : 'Uso', label: getFurnishRenovateDestinationOptions(locale).find(option => option.id === useDestination)?.label || '' }] : []),
+    ...(useDestination === 'social' && Object.values(socialOptions).some(value => value === true)
+      ? [{ id: 'social_options', displayLabel: isEnglish ? 'Social delivery' : 'Entrega social', label: getFurnishRenovateSocialOptions(locale).filter(option => socialOptions[option.id]).map(option => option.label).join(' · ') }]
+      : []),
   ].filter(item => Boolean(item.label))
 }

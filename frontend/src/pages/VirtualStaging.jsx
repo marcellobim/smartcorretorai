@@ -5,6 +5,7 @@ import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import BannerPublishDialog from '../components/campaign/BannerPublishDialog'
+import SharePublishActions from '../components/share/SharePublishActions'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
 import { buildVirtualStagingCampaignPackage, mergeVirtualStagingCampaignHashtags } from '../components/campaign/buildVirtualStagingCampaignPackage'
@@ -23,7 +24,7 @@ import { downloadFileFromPrivateUrl, getDownloadErrorMessage } from '../lib/down
 import { supabase } from '../lib/supabase'
 import { getSmartTokenErrorMessage, SMART_TOKEN_COSTS } from '../lib/smart-tokens'
 import { VIRTUAL_STAGING_MAX_IMAGES, VIRTUAL_STAGING_PRODUCT_NAME } from '../config/virtualStaging'
-import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
+import { buildFurnishRenovateReviewItems, canAddFurnishRenovateImages, furnishRenovateRequiresStyle, FURNISH_RENOVATE_JOURNEY_ID, FURNISH_RENOVATE_MAX_IMAGES, FURNISH_RENOVATE_QUESTIONS, getFurnishRenovateCopy, getFurnishRenovateDestinationOptions, getFurnishRenovateSocialOptions, getFurnishRenovateStyleLabel, getFurnishRenovateStyleOptions, getFurnishRenovateTransformationLabel, getFurnishRenovateTransformationOptions, getSmartSpaceQuote, getSmartSpaceUnitCost, isAvailableFurnishRenovateTransformation, isRecoverableFurnishRenovateTransformation } from '../config/virtualStagingFurnish'
 import { getRecoverableVirtualStagingJourneyId, getVirtualStagingJourney, getVirtualStagingJourneySessionKey, isUsableVirtualStagingVideoUrl, parseVirtualStagingJobRecord, VIRTUAL_STAGING_JOURNEYS } from '../config/virtualStagingJourneys'
 import { buildLifeInPropertyGenerationPayload, getLifeSceneLabel, LIFE_IN_PROPERTY_JOURNEY_ID, LIFE_RENTAL_STAGE_OPTIONS, LIFE_SCENE_OPTIONS } from '../config/virtualStagingLife'
 import { BROKER_CUSTOM_SPEECH_MAX_WORDS, BROKER_PRESENTATION_JOURNEY_ID, BROKER_REFERENCE_OPTIONS, BROKER_SPEECH_OPTIONS, buildBrokerPresentationFilePayload, buildBrokerPresentationGenerationPayload, validatePresenterReferenceSelection } from '../config/virtualStagingBroker'
@@ -46,6 +47,7 @@ const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para mora
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', neighborhood: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
 const initialGeneration = { mode: 'guided_tour', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
+const initialSocialOptions = Object.freeze({ property: false, propertyText: '', caption: false, captionText: '', cta: false, phone: false, identity: false, publish: false, tiktok: false })
 const ANALYTICS_PRODUCT_BY_JOURNEY = Object.freeze({
   [FURNISH_RENOVATE_JOURNEY_ID]: 'virtual_staging',
   [LIFE_IN_PROPERTY_JOURNEY_ID]: 'vida_no_imovel',
@@ -185,7 +187,7 @@ async function materializeSmartSpaceResult({ rawResult, inputPath, originalIndex
 const smartSpaceCopy = (t, key) => t(key).replaceAll('Smart Space', VIRTUAL_STAGING_PRODUCT_NAME)
 const smartSpaceText = t => Object.fromEntries(['image', 'original', 'result', 'enlarge', 'download', 'publish', 'transformationVideo', 'recommended', 'videoTip', 'downloadVideo', 'publishVideo', 'partial', 'videoFinishing', 'videoFailed'].map(key => [key, smartSpaceCopy(t, `virtualStaging.smartSpace.${key}`)]))
 
-function FurnishRenovateResultCard({ result, publication, locale, t }) {
+function FurnishRenovateResultCard({ result, publication, social, caption = '', locale, t }) {
   const copy = smartSpaceText(t)
   const stageLabel = stage => t(`virtualStaging.smartSpace.stage.${stage.kind}`) || stage.label
   const [downloading, setDownloading] = useState('')
@@ -231,6 +233,7 @@ function FurnishRenovateResultCard({ result, publication, locale, t }) {
         clientRequestId: result.clientRequestId,
         itemIndex: result.originalIndex,
         previewUrl: result.video?.signedUrl,
+        captionSnapshot: caption,
       }))
     } catch {
       setDownloadError(smartSpaceCopy(t, 'virtualStaging.smartSpace.videoUnavailable'))
@@ -244,6 +247,7 @@ function FurnishRenovateResultCard({ result, publication, locale, t }) {
         stageKind: stage.kind,
         stageLabel: stage.label,
         previewUrl: stage.url,
+        captionSnapshot: caption,
       }))
     } catch {
       setDownloadError(smartSpaceCopy(t, 'virtualStaging.smartSpace.imageUnavailable'))
@@ -263,7 +267,7 @@ function FurnishRenovateResultCard({ result, publication, locale, t }) {
       <ProductButton key={`download-${stage.kind}`} type="button" size="lg" variant="success" loading={downloading === stage.kind} onClick={() => download(stage)} className="w-full sm:w-auto">
         {downloading !== stage.kind && <Download className="h-5 w-5" />}{copy.download} {stageLabel(stage).toLocaleLowerCase(locale)}
       </ProductButton>,
-      publication?.enabled ? <ProductButton key={`publish-${stage.kind}`} type="button" size="lg" variant="secondary" onClick={() => openImagePublication(stage)} className="w-full sm:w-auto">
+      social && publication?.enabled ? <ProductButton key={`publish-${stage.kind}`} type="button" size="lg" variant="secondary" onClick={() => openImagePublication(stage)} className="w-full sm:w-auto">
         <Instagram className="h-5 w-5" />{copy.publish} {stageLabel(stage).toLocaleLowerCase(locale)}
       </ProductButton> : null,
     ].filter(Boolean))}</div>
@@ -273,7 +277,7 @@ function FurnishRenovateResultCard({ result, publication, locale, t }) {
       <ProductButton type="button" size="lg" variant="success" loading={downloading === 'video'} onClick={downloadVideo} className="mt-3 w-full sm:w-auto">
         {downloading !== 'video' && <Download className="h-5 w-5" />}{copy.downloadVideo}
       </ProductButton>
-      {publication?.enabled && <ProductButton type="button" size="lg" variant="secondary" onClick={openVideoPublication} className="mt-3 w-full sm:ml-3 sm:w-auto">
+      {social && publication?.enabled && <ProductButton type="button" size="lg" variant="secondary" onClick={openVideoPublication} className="mt-3 w-full sm:ml-3 sm:w-auto">
         <Instagram className="h-5 w-5" />{copy.publishVideo}
       </ProductButton>}
     </section>}
@@ -284,11 +288,13 @@ function FurnishRenovateResultCard({ result, publication, locale, t }) {
   </article>
 }
 
-function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication, locale, t }) {
+function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization, publication, socialOptions, locale, t }) {
   const copy = key => t(`virtualStaging.smartSpace.delivery.${key}`)
   const completedResults = results.filter(result => result.status === 'completed')
   const failedResults = results.filter(result => result.status === 'failed')
   const unavailableResults = results.filter(result => result.status === 'result_unavailable')
+  const isSocial = socialOptions?.destination === 'social'
+  const caption = socialOptions?.captionText || ''
 
   return (
     <section className="mt-10 space-y-5" aria-labelledby="virtual-staging-result-title">
@@ -297,12 +303,35 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
         {failedResults.length > 0 && <p className="mt-3 text-sm font-bold text-amber-800">{copy('failedSome')}</p>}
         {unavailableResults.length > 0 && <p className="mt-3 text-sm font-bold text-primary-800">{copy('loadingSome')}</p>}
         <div className="mt-6 space-y-6">
+          {isSocial && (socialOptions?.property || socialOptions?.caption || socialOptions?.cta || socialOptions?.phone || socialOptions?.identity) && <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5" aria-label={locale === 'en-US' ? 'Social campaign details' : 'Detalhes da campanha social'}>
+            <h3 className="text-lg font-black text-emerald-950">{locale === 'en-US' ? 'Social sharing details' : 'Detalhes para redes sociais'}</h3>
+            {socialOptions?.property && <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-emerald-950">{socialOptions?.propertyText || (locale === 'en-US' ? 'No property details added.' : 'Nenhum dado do imóvel adicionado.')}</p>}
+            {socialOptions?.caption && <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-emerald-950">{caption || (locale === 'en-US' ? 'No caption added.' : 'Nenhuma legenda adicionada.')}</p>}
+            {socialOptions?.cta && <p className="mt-3 text-sm font-bold text-emerald-950">CTA: {socialOptions?.ctaLabel || ''}</p>}
+            {socialOptions?.phone && <p className="mt-1 text-sm font-bold text-emerald-950">{locale === 'en-US' ? 'Phone' : 'Telefone'}: {socialOptions?.phoneValue || ''}</p>}
+            {socialOptions?.identity && <p className="mt-1 text-sm font-bold text-emerald-950">{locale === 'en-US' ? 'Professional identity' : 'Identificação profissional'}: {socialOptions?.identityValue || ''}</p>}
+          </section>}
+          {isSocial && socialOptions?.caption && caption && <CampaignPackage data={{
+            language: locale,
+            sourceProduct: VIRTUAL_STAGING_PRODUCT_NAME,
+            mediaType: 'images',
+            existingTexts: { social_caption: { label: 'Instagram / Facebook', text: caption } },
+            strategy: [locale === 'en-US' ? 'Use this approved caption when sharing the transformation.' : 'Use esta legenda aprovada ao divulgar a transformação.'],
+          }} />}
           {results.map(result => result.status === 'completed'
-            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} locale={locale} t={t} />
+            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} social={isSocial && Boolean(socialOptions?.publish)} caption={caption} locale={locale} t={t} />
             : result.status === 'result_unavailable'
               ? <article key={result.id} className="rounded-3xl border border-primary-200 bg-primary-50 p-4 sm:p-5" aria-label={`${copy('loadingResult')} ${result.originalIndex + 1}`}><h3 className="font-black text-primary-950">{t('virtualStaging.smartSpace.image')} {result.originalIndex + 1}</h3>{result.originalPreview && <img src={result.originalPreview} alt={`${t('virtualStaging.smartSpace.originalImage')} ${result.originalIndex + 1}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" />}<p className="mt-3 text-sm font-bold text-primary-900">{copy('transformed')}</p><ProductButton type="button" size="lg" variant="secondary" onClick={() => onRetryMaterialization(result.id)} className="mt-4 w-full sm:w-auto">{copy('retry')}</ProductButton></article>
               : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`${copy('failedImage')} ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">{t('virtualStaging.smartSpace.image')} {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`${t('virtualStaging.smartSpace.originalImage')} ${result.originalIndex + 1} ${copy('notCompleted')}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">{copy('transformFailed')}</p></article>)}
         </div>
+        {isSocial && socialOptions?.tiktok && completedResults.some(result => result.video?.state === 'completed' && result.video.signedUrl) && <SharePublishActions
+          media={completedResults.filter(result => result.video?.state === 'completed' && result.video.signedUrl).map(result => ({ url: result.video.signedUrl, name: `snetia-space-${result.originalIndex + 1}.mp4`, type: 'video', mimeType: 'video/mp4' }))}
+          shareTitle={locale === 'en-US' ? 'Snetia Space transformation' : 'Transformação Snetia Space'}
+          shareText={caption}
+          supportedNetworks={['tiktok']}
+          defaultExpanded
+          className="mt-5"
+        />}
         <p className="mt-5 text-sm font-semibold leading-6 text-slate-600">{copy('otherProducts')}</p>
         {completedResults.length === 0 && unavailableResults.length === 0 && <p className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-700">{copy('none')}</p>}
         <ProductButton type="button" size="lg" variant="secondary" onClick={onCreateNew} className="mt-5 w-full sm:w-auto">{smartSpaceCopy(t, 'virtualStaging.smartSpace.createNewProject')}</ProductButton>
@@ -432,8 +461,10 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const [property, setProperty] = useState(() => restoredJourneyDraft.property || initialProperty)
   const [generation, setGeneration] = useState(() => restoredJourneyDraft.generation || initialGeneration)
   const [lifeScene, setLifeScene] = useState(() => restoredJourneyDraft.lifeScene || '')
-  const [transformationType, setTransformationType] = useState(() => isAvailableFurnishRenovateTransformation(restoredJourneyDraft.transformationType) ? restoredJourneyDraft.transformationType : '')
+  const [transformationType, setTransformationType] = useState(() => isRecoverableFurnishRenovateTransformation(restoredJourneyDraft.transformationType) ? restoredJourneyDraft.transformationType : '')
   const [decorationStyle, setDecorationStyle] = useState(() => restoredJourneyDraft.decorationStyle || '')
+  const [useDestination, setUseDestination] = useState(() => ['social', 'portal'].includes(restoredJourneyDraft.useDestination) ? restoredJourneyDraft.useDestination : '')
+  const [socialOptions, setSocialOptions] = useState(() => ({ ...initialSocialOptions, ...(restoredJourneyDraft.socialOptions || {}) }))
   const [presenterReferenceDecision, setPresenterReferenceDecision] = useState(() => restoredJourneyDraft.presenterReferenceDecision ?? null)
   const [presenterSpeechMode, setPresenterSpeechMode] = useState(() => restoredJourneyDraft.presenterSpeechMode || 'generated')
   const [presenterCustomSpeech, setPresenterCustomSpeech] = useState(() => restoredJourneyDraft.presenterCustomSpeech || '')
@@ -500,21 +531,30 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   const explicitFurnishRecoveryId = readSmartSpaceRecoveryClientRequestId(globalThis.location?.search || '')
   const questions = useMemo(() => {
     const journeyQuestions = questionsFor(journey.id)
-    if (journey.id !== FURNISH_RENOVATE_JOURNEY_ID || !transformationType || furnishRenovateRequiresStyle(transformationType)) return journeyQuestions
-    return journeyQuestions.filter(([questionId]) => questionId !== 'decoration_style')
-  }, [journey.id, transformationType])
+    if (journey.id !== FURNISH_RENOVATE_JOURNEY_ID) return journeyQuestions
+    return journeyQuestions.filter(([questionId]) => {
+      if (questionId === 'decoration_style') return !transformationType || furnishRenovateRequiresStyle(transformationType)
+      if (questionId === 'social_options') return useDestination === 'social'
+      if (questionId === 'cta') return socialOptions.cta
+      if (questionId === 'phone') return socialOptions.phone
+      if (questionId === 'professional_identity') return socialOptions.identity
+      return true
+    })
+  }, [journey.id, socialOptions.cta, socialOptions.identity, socialOptions.phone, transformationType, useDestination])
   const questionOrder = useMemo(() => questions.map(item => item[0]), [questions])
   const furnishProject = useMemo(() => ({
     transformation_type: transformationType,
     decoration_style: decorationStyle,
     property_images: images,
-  }), [transformationType, decorationStyle, images])
+    use_destination: useDestination,
+  }), [transformationType, decorationStyle, images, useDestination])
   const furnishGenerationBusy = isFurnishRenovate && ['uploading', 'generating', 'preparing_result'].includes(status)
   const canGenerateFurnish = isFurnishRenovate
     && images.length >= 1
     && images.length <= FURNISH_RENOVATE_MAX_IMAGES
     && isAvailableFurnishRenovateTransformation(transformationType)
     && (!furnishRenovateRequiresStyle(transformationType) || Boolean(decorationStyle))
+    && Boolean(useDestination)
     && !furnishGenerationBusy
     && !hasAttemptedFurnishGeneration
   const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
@@ -547,6 +587,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       if (questionId === 'images') setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
       if (questionId === 'transformation_type') setTransformationType('')
       if (questionId === 'decoration_style') setDecorationStyle('')
+      if (questionId === 'use_destination') { setUseDestination(''); setSocialOptions(initialSocialOptions) }
+      if (questionId === 'social_options') setSocialOptions(initialSocialOptions)
       if (questionId === 'purpose') setProperty(current => ({ ...current, purpose: '', stage: '' }))
       if (questionId === 'stage') setProperty(current => ({ ...current, stage: '' }))
       if (questionId === 'type') setProperty(current => ({ ...current, type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', highlights: [] }))
@@ -575,6 +617,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     if (shouldReset('images')) setImages(current => { current.forEach(item => URL.revokeObjectURL(item.preview)); return [] })
     if (shouldReset('transformation_type')) setTransformationType('')
     if (shouldReset('decoration_style')) setDecorationStyle('')
+    if (shouldReset('use_destination')) { setUseDestination(''); setSocialOptions(initialSocialOptions) }
+    else if (shouldReset('social_options')) setSocialOptions(initialSocialOptions)
     const propertyFields = [['purpose', 'purpose'], ['stage', 'stage'], ['type', 'type'], ['facts', 'bedrooms'], ['facts', 'suites'], ['facts', 'parkingSpaces'], ['facts', 'area'], ['location', 'state'], ['location', 'county'], ['location', 'city'], ['location', 'district'], ['location', 'neighborhood'], ['location', 'zipCode'], ['location', 'neighborhoodCommunity'], ['bedrooms', 'bedrooms'], ['suites', 'suites'], ['parkingSpaces', 'parkingSpaces'], ['area', 'area'], ['commercial', 'price'], ['commercial', 'condominium'], ['commercial', 'iptu'], ['highlights', 'highlights']]
     setProperty(current => propertyFields.reduce((nextProperty, [questionKey, field]) => shouldReset(questionKey) ? { ...nextProperty, [field]: field === 'highlights' ? [] : '' } : nextProperty, current))
     setGeneration(current => ({
@@ -618,16 +662,17 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     const presenterMetadata = presenterReference?.file
       ? toFileMetadata(presenterReference.file, 0)
       : missingPresenterMetadata
-    const draft = { hasStartedFurnish, property, generation, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, ctaEnabled, cta, includePhone, professionalIdentity: professionalIdentitySelection, ...(supportsLocaleMarket ? { locale: draftLocale, market: draftMarket } : {}), imageMetadata, presenterMetadata, conversation: conversationSnapshot }
-    const meaningful = conversationSnapshot?.history?.length || hasStartedFurnish || imageMetadata.length || presenterMetadata || transformationType || decorationStyle || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
+    const draft = { hasStartedFurnish, property, generation, lifeScene, transformationType, decorationStyle, useDestination, socialOptions, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, ctaEnabled, cta, includePhone, professionalIdentity: professionalIdentitySelection, ...(supportsLocaleMarket ? { locale: draftLocale, market: draftMarket } : {}), imageMetadata, presenterMetadata, conversation: conversationSnapshot }
+    const meaningful = conversationSnapshot?.history?.length || hasStartedFurnish || imageMetadata.length || presenterMetadata || transformationType || decorationStyle || useDestination || Object.values(socialOptions).some(Boolean) || Object.values(property).some(value => Array.isArray(value) ? value.length : Boolean(value))
     if (!meaningful) { journeyDraft.clear(); return }
     journeyDraft.save(draft)
-  }, [conversationSnapshot, cta, ctaEnabled, decorationStyle, draftLocale, draftMarket, generation, hasStartedFurnish, images, includePhone, journeyDraft, lifeScene, missingImageMetadata, missingPresenterMetadata, presenterCustomSpeech, presenterReference, presenterReferenceDecision, presenterSpeechMode, professionalIdentitySelection, property, status, supportsLocaleMarket, transformationType])
+  }, [conversationSnapshot, cta, ctaEnabled, decorationStyle, draftLocale, draftMarket, generation, hasStartedFurnish, images, includePhone, journeyDraft, lifeScene, missingImageMetadata, missingPresenterMetadata, presenterCustomSpeech, presenterReference, presenterReferenceDecision, presenterSpeechMode, professionalIdentitySelection, property, socialOptions, status, supportsLocaleMarket, transformationType, useDestination])
   const question = questions[questionIndex] || questions[0]
   const localizedQuestionKey = {
     images: 'images', purpose: 'purpose', stage: 'stage', type: 'type', facts: 'facts', location: 'location', commercial: 'commercial', highlights: 'highlights', life_scene: 'lifeScene', captions: 'captions', cta: 'cta', phone: 'phone', review: 'review', presenter_reference: 'presenterReference', presenter_photo: 'presenterPhoto', presenter_speech_mode: 'speech', presenter_custom_speech: 'customSpeech', cta_enabled: 'ctaEnabled',
   }[question[0]]
-  const smartSpaceQuestions = draftLocale === 'en-US' ? { transformation_type: 'What would you like to do with the space in these images?', decoration_style: 'Which style do you prefer for the rooms?', images: 'Upload property photos', review: 'Review your project' } : null
+  const furnishCopy = getFurnishRenovateCopy(draftLocale)
+  const smartSpaceQuestions = isFurnishRenovate ? { transformation_type: furnishCopy.transformationQuestion, decoration_style: furnishCopy.styleQuestion, images: furnishCopy.uploadQuestion, use_destination: furnishCopy.destinationQuestion, social_options: furnishCopy.socialOptionsQuestion, review: furnishCopy.reviewQuestion } : null
   const localizedQuestion = question[0] === 'professional_identity' ? (draftMarket === 'US' ? 'Would you like to include your professional information?' : 'Deseja incluir sua identificação profissional?') : isFurnishRenovate && smartSpaceQuestions ? smartSpaceQuestions[question[0]] : localizedQuestionKey ? t(`virtualStaging.questions.${localizedQuestionKey}`) : question[0] === 'presenter_reference_required' ? (draftLocale === 'en-US' ? 'This module uses your photo as a reference to create the presenter. Without a reference photo, use Real Estate Video to create your presentation.' : 'Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.') : question[2]
   const reachedStep = isFurnishRenovate && !hasStartedFurnish
     ? null
@@ -637,7 +682,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   useEffect(() => {
     if (images.length || presenterReference?.file) trackStep(STEPS.UPLOAD)
   }, [images.length, presenterReference?.file, trackStep])
-  const answerQuestion = ({ answer, answerId = '', nextQuestionId = getVirtualStagingNextQuestion({ questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id }), apply }) => {
+  const answerQuestion = ({ answer, answerId = '', nextQuestionId = getVirtualStagingNextQuestion({ questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id, socialOptions }), apply }) => {
     let resolvedNextQuestionId = nextQuestionId
     if (reviewEditRef.current) {
       resolvedNextQuestionId = getVirtualStagingReviewEditNext({ originQuestionId: reviewEditRef.current, questionId: question[0], answerId, mode: generation.mode, journeyId: journey.id })
@@ -1047,7 +1092,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     } catch (error) { setStatus('error'); setMessage(getSmartTokenErrorMessage(error, lifeBrokerCopy('createFailed'), draftLocale)); void reloadProfile() }
   }
 
-  const reset = () => { sessionStorage.removeItem(activeJobKey); if (furnishRecoveryKey) sessionStorage.removeItem(furnishRecoveryKey); clearPendingSmartSpacePublication(window.sessionStorage, user?.id); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishRecoveryStartedRef.current = false; if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current); for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer); furnishVideoPollsRef.current.clear(); journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setPresenterReferenceDecision(null); setPresenterSpeechMode('generated'); setPresenterCustomSpeech(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); setProfessionalIdentitySelection({ enabled: null, name_source: null }); conversation.resetConversation(); setStatus('idle'); setMessage(''); setTrialAlreadyUsed(false); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
+  const reset = () => { sessionStorage.removeItem(activeJobKey); if (furnishRecoveryKey) sessionStorage.removeItem(furnishRecoveryKey); clearPendingSmartSpacePublication(window.sessionStorage, user?.id); activeJobIdRef.current = ''; recoveryStartedJobIdRef.current = ''; furnishRecoveryStartedRef.current = false; if (furnishRecoveryPollRef.current) clearTimeout(furnishRecoveryPollRef.current); for (const timer of furnishVideoPollsRef.current.values()) clearTimeout(timer); furnishVideoPollsRef.current.clear(); journeyDraft.clear(); furnishGenerationInFlightRef.current = false; images.forEach(item => URL.revokeObjectURL(item.preview)); clearPresenterReference(); reviewEditRef.current = null; setHasStartedFurnish(false); setImages([]); setMissingImageMetadata([]); setMissingPresenterMetadata(null); setProperty(initialProperty); setGeneration(initialGeneration); setLifeScene(''); setTransformationType(''); setDecorationStyle(''); setUseDestination(''); setSocialOptions(initialSocialOptions); setPresenterReferenceDecision(null); setPresenterSpeechMode('generated'); setPresenterCustomSpeech(''); setCtaEnabled(null); setCta(''); setIncludePhone(null); setProfessionalIdentitySelection({ enabled: null, name_source: null }); conversation.resetConversation(); setStatus('idle'); setMessage(''); setTrialAlreadyUsed(false); setResult(null); setFurnishResults([]); setHasAttemptedFurnishGeneration(false) }
   const smartSpacePublication = user?.id ? {
     enabled: true,
     loadConnection: () => getMetaConnectionStatus(supabase),
@@ -1064,7 +1109,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     },
   } : undefined
   if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} t={t} />
-  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} locale={draftLocale} t={t} />
+  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} socialOptions={{ ...socialOptions, destination: useDestination, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
     return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: getJourneyPresentation(journey, t).title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel={t('virtualStaging.lifeBroker.newProject')} uiLabels={videoUiLabels} /></section>
@@ -1084,7 +1129,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     { id: 'decoration_style', label: getFurnishRenovateStyleLabel(decorationStyle, draftLocale) },
     { id: 'images', label: images.length === 1 ? `1 ${draftLocale === 'en-US' ? 'image' : 'imagem'}` : images.length > 1 ? `${images.length} ${draftLocale === 'en-US' ? 'images' : 'imagens'}` : '' },
   ].filter(item => Boolean(item.label))
-  const furnishReviewItems = buildFurnishRenovateReviewItems({ imagesCount: furnishProject.property_images.length, transformationType: furnishProject.transformation_type, decorationStyle: furnishProject.decoration_style, locale: draftLocale })
+  const furnishReviewItems = buildFurnishRenovateReviewItems({ imagesCount: furnishProject.property_images.length, transformationType: furnishProject.transformation_type, decorationStyle: furnishProject.decoration_style, useDestination, socialOptions, locale: draftLocale })
   const standardSummary = [
     { id: 'images', label: images.length && interpolate(t(images.length === 1 ? 'virtualStaging.photos.one' : 'virtualStaging.photos.many'), { count: images.length }) },
     { id: 'purpose', label: property.purpose && t(`virtualStaging.purpose.${property.purpose}`) },
@@ -1138,7 +1183,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
       designSystem
       accent="emerald"
     >
-      <Question id={question[0]} {...{ journeyId: journey.id, locale: draftLocale, market: draftMarket, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, setProperty, generation, ctaEnabled, cta, includePhone, phone, professionalIdentitySelection, profile: profile || user, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setProfessionalIdentitySelection, updateUser, reloadProfile, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : reviewItems, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
+      <Question id={question[0]} {...{ journeyId: journey.id, locale: draftLocale, market: draftMarket, lifeScene, transformationType, decorationStyle, useDestination, socialOptions, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, setProperty, generation, ctaEnabled, cta, includePhone, phone, professionalIdentitySelection, profile: profile || user, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setUseDestination, setSocialOptions, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setProfessionalIdentitySelection, updateUser, reloadProfile, createTour, resetCreation: reset, reviewItems: isFurnishRenovate ? furnishReviewItems : reviewItems, onReviewEdit: editConversationAnswer, navigateToVideoProduct: () => navigate('/smart-tour-ai') }} />
     </GuidedConversation>
   </section>
 }
@@ -1286,7 +1331,7 @@ function VirtualStagingModules({ selectedJourneyId, onSelect, t }) {
 }
 
 function Question(props) {
-  const { id, journeyId, locale, market, lifeScene, transformationType, decorationStyle, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, setProperty, generation, ctaEnabled, cta, includePhone, phone, professionalIdentitySelection, profile, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setProfessionalIdentitySelection, updateUser, reloadProfile, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
+  const { id, journeyId, locale, market, lifeScene, transformationType, decorationStyle, useDestination, socialOptions, presenterReferenceDecision, presenterSpeechMode, presenterCustomSpeech, presenterReference, presenterReferenceMessage, images, property, setProperty, generation, ctaEnabled, cta, includePhone, phone, professionalIdentitySelection, profile, inputRef, presenterInputRef, message, status, canGenerateFurnish, furnishGenerationBusy, addPresenterReference, clearPresenterReference, addImages, move, remove, answerQuestion, setLifeScene, setTransformationType, setDecorationStyle, setUseDestination, setSocialOptions, setPresenterReferenceDecision, setPresenterSpeechMode, setPresenterCustomSpeech, setPropertyField, setGenerationField, toggleHighlight, setCtaEnabled, setCta, setIncludePhone, setProfessionalIdentitySelection, updateUser, reloadProfile, createTour, resetCreation, reviewItems, onReviewEdit, navigateToVideoProduct } = props
   const furnishCopy = getFurnishRenovateCopy(locale)
   const isFurnishRenovate = journeyId === FURNISH_RENOVATE_JOURNEY_ID
   const isLifeInProperty = journeyId === LIFE_IN_PROPERTY_JOURNEY_ID
@@ -1299,6 +1344,19 @@ function Question(props) {
   const cont = (disabled, answer, nextQuestionId, apply, answerId = '') => <Button type="button" disabled={disabled} onClick={() => answerQuestion({ answer, answerId, nextQuestionId, apply })} className="mt-5">{t('virtualStaging.continue')}</Button>
   if (id === 'transformation_type' && isFurnishRenovate) return choices(getFurnishRenovateTransformationOptions(locale), transformationType, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setTransformationType(value); if (!furnishRenovateRequiresStyle(value)) setDecorationStyle('') } }))
   if (id === 'decoration_style' && isFurnishRenovate) return choices(getFurnishRenovateStyleOptions(locale), decorationStyle, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => setDecorationStyle(value) }))
+  if (id === 'use_destination' && isFurnishRenovate) return choices(getFurnishRenovateDestinationOptions(locale), useDestination, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setUseDestination(value); if (value !== 'social') setSocialOptions(initialSocialOptions) } }))
+  if (id === 'social_options' && isFurnishRenovate) {
+    const toggle = optionId => setSocialOptions(current => ({ ...current, [optionId]: !current[optionId] }))
+    const selectedLabels = getFurnishRenovateSocialOptions(locale).filter(option => socialOptions[option.id]).map(option => option.label)
+    const nextQuestionId = getVirtualStagingNextQuestion({ questionId: 'social_options', journeyId, socialOptions })
+    return <div className="space-y-4">
+      <p className="text-sm font-semibold text-slate-600">{furnishCopy.socialOptionsHelp}</p>
+      <div className="grid gap-2 sm:grid-cols-2">{getFurnishRenovateSocialOptions(locale).map(option => <label key={option.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800"><input type="checkbox" checked={Boolean(socialOptions[option.id])} onChange={() => toggle(option.id)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />{option.label}</label>)}</div>
+      {socialOptions.caption && <label className="block text-xs font-black text-slate-700">{furnishCopy.socialCaption}<textarea value={socialOptions.captionText || ''} onChange={event => setSocialOptions(current => ({ ...current, captionText: event.target.value }))} rows={4} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium" placeholder={locale === 'en-US' ? 'Write the caption you want to use.' : 'Escreva a legenda que deseja usar.'} /></label>}
+      {socialOptions.property && <label className="block text-xs font-black text-slate-700">{furnishCopy.socialProperty}<textarea value={socialOptions.propertyText || ''} onChange={event => setSocialOptions(current => ({ ...current, propertyText: event.target.value }))} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium" placeholder={locale === 'en-US' ? 'Add only the property details you want to use.' : 'Adicione apenas os dados do imóvel que deseja usar.'} /></label>}
+      {cont(false, selectedLabels.join(' · ') || (locale === 'en-US' ? 'No optional social items selected' : 'Nenhum item social opcional selecionado'), nextQuestionId)}
+    </div>
+  }
   if (id === 'presenter_reference') return choices(BROKER_REFERENCE_OPTIONS.map(option => ({ ...option, label: option.id === 'yes' ? t('common.yes') : t('common.no') })), presenterReferenceDecision === true ? 'yes' : presenterReferenceDecision === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterReferenceDecision(value === 'yes'); if (value === 'no') clearPresenterReference() } }))
   if (id === 'presenter_speech_mode') return choices(BROKER_SPEECH_OPTIONS.map(option => ({ ...option, label: t(`virtualStaging.speech.${option.id}`) })), presenterSpeechMode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterSpeechMode(value); if (value !== 'custom') setPresenterCustomSpeech('') } }))
   if (id === 'presenter_custom_speech') { const words = presenterCustomSpeech.trim().split(/\s+/).filter(Boolean); return <><textarea value={presenterCustomSpeech} onChange={event => setPresenterCustomSpeech(event.target.value)} placeholder={t('virtualStaging.speech.placeholder')} className="min-h-32 w-full rounded-xl border p-3" /><p className="mt-2 text-xs text-slate-500">{t('virtualStaging.speech.limit').replace('{count}', BROKER_CUSTOM_SPEECH_MAX_WORDS)}</p>{cont(!words.length || words.length > BROKER_CUSTOM_SPEECH_MAX_WORDS, presenterCustomSpeech.trim(), 'captions')}</> }

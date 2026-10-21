@@ -191,6 +191,14 @@ test('monta internamente as duas regras de transformação da criação nova', (
   assert.match(buildVirtualStagingPrompt('mixed', 'contemporary'), /determine se o ambiente está vazio, quase vazio ou já mobiliado/)
 })
 
+test('Limpar o ambiente sempre solicita limpeza visual completa sem adicionar decoração', () => {
+  const prompt = buildVirtualStagingPrompt('remove_furniture', null)
+  assert.match(prompt, /sempre uma limpeza visual completa/i)
+  assert.match(prompt, /Mesmo quando o ambiente já parecer vazio/i)
+  assert.match(prompt, /sem adicionar nenhum elemento novo/i)
+  assert.match(prompt, /Preserve rigorosamente paredes, piso, teto, portas, janelas/i)
+})
+
 test('trata ambientes mobiliados de modo conservador no modo misto', () => {
   const prompt = buildVirtualStagingPrompt('mixed', 'contemporary')
   assert.match(prompt, /Se já estiver mobiliado, seja conservador/)
