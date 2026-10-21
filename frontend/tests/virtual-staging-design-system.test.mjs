@@ -28,6 +28,15 @@ test('keeps only the discrete question counter and final review in the conversat
   assert.doesNotMatch(page, /journeySteps|visualStep|summaryItems=\{reviewItems\}/)
 })
 
+test('resolves shared phone state before computing the common module question list', () => {
+  const questionsStart = page.indexOf('const questions = useMemo')
+  const phoneStart = page.indexOf('const phone = formatPhone')
+
+  assert.ok(phoneStart >= 0)
+  assert.ok(questionsStart >= 0)
+  assert.ok(phoneStart < questionsStart)
+})
+
 test('keeps the approved destination branch after the images', () => {
   assert.deepEqual(
     FURNISH_RENOVATE_QUESTIONS.map(([id, step]) => [id, step]),

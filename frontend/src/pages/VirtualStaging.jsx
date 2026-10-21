@@ -535,6 +535,8 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
   }
   const furnishRecoveryKey = getSmartSpaceRecoveryKey(user?.id)
   const explicitFurnishRecoveryId = readSmartSpaceRecoveryClientRequestId(globalThis.location?.search || '')
+  const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
+  const phone = formatPhone(rawPhone, draftMarket)
   const questions = useMemo(() => {
     const journeyQuestions = questionsFor(journey.id)
     if (journey.id !== FURNISH_RENOVATE_JOURNEY_ID) return journeyQuestions
@@ -570,8 +572,6 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     && Boolean(useDestination)
     && !furnishGenerationBusy
     && !hasAttemptedFurnishGeneration
-  const rawPhone = user?.whatsapp || user?.telefone || user?.phone || user?.phone_number || ''
-  const phone = formatPhone(rawPhone, draftMarket)
   const professionalIdentity = buildProfessionalIdentity(profile || user || {}, professionalIdentitySelection, draftMarket)
   const setPropertyField = (field, value) => setProperty(current => ({ ...current, [field]: value }))
   const setGenerationField = (field, value) => setGeneration(current => ({ ...current, [field]: value }))
