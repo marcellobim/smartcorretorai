@@ -132,7 +132,7 @@ test('Create new explicitly clears the completed reference before resetting the 
   assert.match(createNew, /activeJobRef\.current = null/)
   assert.match(createNew, /resetFlow\(nextMode\)/)
   assert.match(page, /onReset=\{createNewStudioVersion\}/)
-  assert.match(page, /onClick=\{status === 'completed' \? createNewStudioVersion : resetFlow\}/)
+  assert.match(page, /onClick=\{status === 'completed' \? createNewStudioVersion : restartStudioMode\}/)
 })
 
 test('a transient polling error preserves the job and schedules another poll', () => {

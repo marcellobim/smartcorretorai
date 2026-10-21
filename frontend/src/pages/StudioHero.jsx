@@ -21,6 +21,7 @@ import ProfessionalIdentityQuestion from '../components/professional/Professiona
 import { getConversationControls } from '../config/conversationControls'
 import { buildProfessionalIdentity, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
+import { useProductDraft } from '../hooks/useProductDraft'
 import { useLocale } from '../i18n/useLocale'
 import enUSMessages from '../i18n/messages/en-US'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
@@ -48,6 +49,13 @@ import {
   readStudioActiveJob,
   writeStudioActiveJob,
 } from '../lib/studio-active-job'
+import {
+  createStudioModeDraft,
+  getStudioModeDraftProductKey,
+  isStudioModeDraftMeaningful,
+  restoreStudioModeDraft,
+  STUDIO_MODE_DRAFT_SCHEMA_VERSION,
+} from '../lib/studio-mode-draft'
 
 const BUCKET = 'studio-videos'
 const MAX_DIFFERENTIALS = 1
@@ -1303,6 +1311,16 @@ export default function StudioHero() {
   }
   const { user, isAdmin, reloadProfile, updateUser } = useAuth()
   const navigate = useNavigate()
+  const commercialDraft = useProductDraft({
+    productKey: getStudioModeDraftProductKey('cinematic'),
+    schemaVersion: STUDIO_MODE_DRAFT_SCHEMA_VERSION,
+    userId: user?.id,
+  })
+  const creativeDraft = useProductDraft({
+    productKey: getStudioModeDraftProductKey('free_ai'),
+    schemaVersion: STUDIO_MODE_DRAFT_SCHEMA_VERSION,
+    userId: user?.id,
+  })
   const pollTimerRef = useRef(null)
   const pollInFlightRef = useRef('')
   const componentMountedRef = useRef(false)
@@ -1329,6 +1347,34 @@ export default function StudioHero() {
   const [publicationOptions, setPublicationOptions] = useState([])
   const [isRecoveredJob, setIsRecoveredJob] = useState(() => Boolean(initialActiveJobRef.current))
   const [generationMessageIndex, setGenerationMessageIndex] = useState(0)
+
+  const getModeDraft = (mode) => mode === 'free_ai' ? creativeDraft : commercialDraft
+
+  const applyStudioModeState = (mode, storedDraft = null) => {
+    const restored = restoreStudioModeDraft({
+      initialAnswers,
+      mode,
+      storedDraft,
+    })
+    clearPolling()
+    setIsRecoveredJob(false)
+    setAnswers(restored.answers)
+    setManualCityMode(restored.manualCityMode)
+    setFiles({ image1: null })
+    setStatus('idle')
+    setMessage('')
+    setVideoUrl('')
+    setPublicationOptions([])
+    setStep(restored.step)
+  }
+
+  const saveStudioModeDraft = (mode = studioMode) => {
+    if (!mode || activeJobRef.current) return
+    const draft = getModeDraft(mode)
+    const next = createStudioModeDraft({ answers, step, manualCityMode })
+    if (isStudioModeDraftMeaningful(next)) draft.replace(next)
+    else draft.clear()
+  }
 
   useEffect(() => {
     const previousMarket = previousMarketRef.current
@@ -1411,6 +1457,10 @@ export default function StudioHero() {
     district: districtValue,
   }, market)
   const isGenerating = ['uploading', 'generating'].includes(status)
+  useEffect(() => {
+    if (!studioMode || activeJobRef.current || isGenerating) return
+    saveStudioModeDraft(studioMode)
+  }, [answers, isGenerating, manualCityMode, status, step, studioMode])
   const hasProfileStep = isPropertyCampaign && isResidentialType(answers.propertyType)
   const hasHouseLocationStep = isPropertyCampaign && answers.propertyType === 'CASA'
   const hasLandAreaStep = isPropertyCampaign && isLandType(answers.propertyType)
@@ -2188,19 +2238,13 @@ export default function StudioHero() {
 
   const resetFlow = (nextMode = studioMode) => {
     if (activeJobRef.current) return
-    clearPolling()
-    setIsRecoveredJob(false)
-    setManualCityMode(false)
-    setAnswers({
-      ...initialAnswers,
-      creativeMode: nextMode === 'free_ai' ? 'free_ai' : 'cinematic',
-    })
-    setFiles({ image1: null })
-    setStatus('idle')
-    setMessage('')
-    setVideoUrl('')
-    setPublicationOptions([])
-    setStep(1)
+    applyStudioModeState(nextMode)
+  }
+
+  const restartStudioMode = () => {
+    if (activeJobRef.current) return
+    getModeDraft(studioMode).clear()
+    resetFlow(studioMode)
   }
 
   const createNewStudioVersion = (nextMode = studioMode) => {
@@ -2210,12 +2254,13 @@ export default function StudioHero() {
       clearStudioActiveJob(window.sessionStorage, recoverableJobId)
     }
     activeJobRef.current = null
+    getModeDraft(nextMode).clear()
     resetFlow(nextMode)
   }
 
   // Leaving a pre-generation draft must not cancel or erase an existing job.
   const backToStudio = () => {
-    resetFlow(studioMode)
+    saveStudioModeDraft(studioMode)
     setStudioMode('')
   }
 
@@ -2236,8 +2281,9 @@ export default function StudioHero() {
       return
     }
 
+    const storedDraft = getModeDraft(mode.id).restore()
     setStudioMode(mode.id)
-    resetFlow(mode.id)
+    applyStudioModeState(mode.id, storedDraft)
   }
 
   if (!studioMode) {
@@ -3350,7 +3396,7 @@ export default function StudioHero() {
           <div className="flex justify-end">
             <ProductButton
               type="button"
-              onClick={status === 'completed' ? createNewStudioVersion : resetFlow}
+              onClick={status === 'completed' ? createNewStudioVersion : restartStudioMode}
               variant="ghost"
               size="sm"
             >
