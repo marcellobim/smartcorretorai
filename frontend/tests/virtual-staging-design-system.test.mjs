@@ -37,6 +37,9 @@ test('keeps the approved destination branch after the images', () => {
       ['images', 3],
       ['use_destination', 4],
       ['social_options', 5],
+      ['social_property_details', 5],
+      ['social_caption_mode', 5],
+      ['social_caption_custom', 5],
       ['cta', 5],
       ['phone', 5],
       ['professional_identity', 5],
@@ -48,9 +51,9 @@ test('keeps the approved destination branch after the images', () => {
 test('keeps publishing decisions out of the social briefing and in the generated delivery', () => {
   assert.deepEqual(
     FURNISH_RENOVATE_QUESTIONS.map(([id]) => id),
-    ['transformation_type', 'decoration_style', 'images', 'use_destination', 'social_options', 'cta', 'phone', 'professional_identity', 'review'],
+    ['transformation_type', 'decoration_style', 'images', 'use_destination', 'social_options', 'social_property_details', 'social_caption_mode', 'social_caption_custom', 'cta', 'phone', 'professional_identity', 'review'],
   )
-  const socialQuestion = page.slice(page.indexOf("if (id === 'social_options'"), page.indexOf("if (id === 'presenter_reference')"))
+  const socialQuestion = page.slice(page.indexOf("if (id === 'social_options'"), page.indexOf("if (id === 'social_property_details'"))
   assert.doesNotMatch(socialQuestion, /Publish to Instagram|Publicar no Instagram|Send to TikTok|Enviar para TikTok|publish|tiktok/i)
   const delivery = page.slice(page.indexOf('function FurnishRenovateDelivery'), page.indexOf('function FurnishRenovateProcessing'))
   assert.match(delivery, /social=\{isSocial\}/)

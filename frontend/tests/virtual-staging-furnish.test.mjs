@@ -52,12 +52,15 @@ test('uses the approved destination labels and optional social controls in BR an
 })
 
 test('branches after upload to clean portal delivery or optional social questions', () => {
-  assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.map(([id]) => id), ['transformation_type', 'decoration_style', 'images', 'use_destination', 'social_options', 'cta', 'phone', 'professional_identity', 'review'])
+  assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.map(([id]) => id), ['transformation_type', 'decoration_style', 'images', 'use_destination', 'social_options', 'social_property_details', 'social_caption_mode', 'social_caption_custom', 'cta', 'phone', 'professional_identity', 'review'])
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'transformation_type', answerId: 'remove_furniture', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'images')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'transformation_type', answerId: 'remove_and_redecorate', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'decoration_style')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'use_destination')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'use_destination', answerId: 'portal', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'review')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'use_destination', answerId: 'social', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'social_options')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'social_options', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { property: true } }), 'social_property_details')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'social_property_details', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { caption: true } }), 'social_caption_mode')
+  assert.equal(getVirtualStagingNextQuestion({ questionId: 'social_caption_mode', answerId: 'custom', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { caption: true } }), 'social_caption_custom')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'social_options', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { cta: true, phone: true, identity: true } }), 'cta')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'cta', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { phone: true, identity: true } }), 'phone')
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'phone', journeyId: FURNISH_RENOVATE_JOURNEY_ID, socialOptions: { identity: true } }), 'professional_identity')
@@ -87,11 +90,25 @@ test('keeps portal delivery clean and exposes social publication only after gene
   assert.match(page, /<SharePublishActions/)
   assert.match(page, /isSocial && socialOptions\?\.caption && caption && <CampaignPackage/)
   assert.match(page, /onSaveProfile=\{async patch =>/)
-  const socialQuestion = page.slice(page.indexOf("if (id === 'social_options'"), page.indexOf("if (id === 'presenter_reference')"))
+  const socialQuestion = page.slice(page.indexOf("if (id === 'social_options'"), page.indexOf("if (id === 'social_property_details'"))
   assert.doesNotMatch(socialQuestion, /publish|tiktok|Instagram\/Facebook|TikTok/)
   const delivery = page.slice(page.indexOf('function FurnishRenovateDelivery'), page.indexOf('function FurnishRenovateProcessing'))
   assert.match(delivery, /social=\{isSocial\}/)
   assert.match(delivery, /isSocial && completedResults\.some/)
+})
+
+test('reuses structured property data and the shared caption editor for Social media', () => {
+  const socialProperty = page.slice(page.indexOf("if (id === 'social_property_details'"), page.indexOf("if (id === 'social_caption_mode'"))
+  assert.match(socialProperty, /<StudioUsLocation[\s\S]*showContinue=\{false\}/)
+  assert.match(socialProperty, /<SmartCarouselStateSelect/)
+  assert.match(socialProperty, /<SmartCarouselCitySelect/)
+  assert.match(socialProperty, /getVirtualStagingMeasureFields\(property\.type\)/)
+  assert.match(socialProperty, /getVirtualStagingHighlightGroups\(property\.type\)/)
+  const socialCaption = page.slice(page.indexOf("if (id === 'social_caption_mode'"), page.indexOf("if (id === 'presenter_reference')"))
+  assert.match(socialCaption, /buildVirtualStagingCampaignPackage/)
+  assert.match(socialCaption, /<SocialCaptionEditor/)
+  assert.match(socialCaption, /countSocialCaptionCharacters/)
+  assert.doesNotMatch(page, /propertyText/)
 })
 
 test('keeps final review, Back/Edit/reset, and historical recovery compatible', () => {

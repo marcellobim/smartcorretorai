@@ -64,16 +64,22 @@ const FURNISH_RENOVATE_NEXT_QUESTION = Object.freeze({
   professional_identity: 'review',
 })
 
+const nextFurnishSocialQuestion = socialOptions => {
+  if (socialOptions.caption) return 'social_caption_mode'
+  if (socialOptions.cta) return 'cta'
+  if (socialOptions.phone) return 'phone'
+  if (socialOptions.identity) return 'professional_identity'
+  return 'review'
+}
+
 export function getVirtualStagingNextQuestion({ questionId, answerId = '', mode = '', journeyId = '', socialOptions = {} }) {
   if (journeyId === FURNISH_RENOVATE_JOURNEY_ID) {
     if (questionId === 'transformation_type') return furnishRenovateRequiresStyle(answerId) ? 'decoration_style' : 'images'
     if (questionId === 'use_destination') return answerId === 'social' ? 'social_options' : 'review'
-    if (questionId === 'social_options') {
-      if (socialOptions.cta) return 'cta'
-      if (socialOptions.phone) return 'phone'
-      if (socialOptions.identity) return 'professional_identity'
-      return 'review'
-    }
+    if (questionId === 'social_options') return socialOptions.property ? 'social_property_details' : nextFurnishSocialQuestion(socialOptions)
+    if (questionId === 'social_property_details') return nextFurnishSocialQuestion(socialOptions)
+    if (questionId === 'social_caption_mode') return answerId === 'custom' ? 'social_caption_custom' : nextFurnishSocialQuestion({ ...socialOptions, caption: false })
+    if (questionId === 'social_caption_custom') return nextFurnishSocialQuestion({ ...socialOptions, caption: false })
     if (questionId === 'cta') return socialOptions.phone ? 'phone' : socialOptions.identity ? 'professional_identity' : 'review'
     if (questionId === 'phone') return socialOptions.identity ? 'professional_identity' : 'review'
     return FURNISH_RENOVATE_NEXT_QUESTION[questionId] || 'review'

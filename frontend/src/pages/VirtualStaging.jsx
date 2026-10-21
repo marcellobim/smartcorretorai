@@ -5,6 +5,7 @@ import Header from '../components/layout/Header'
 import { Button } from '../components/ui/Button'
 import CampaignPackage from '../components/campaign/CampaignPackage'
 import BannerPublishDialog from '../components/campaign/BannerPublishDialog'
+import SocialCaptionEditor, { countSocialCaptionCharacters } from '../components/campaign/SocialCaptionEditor'
 import SharePublishActions from '../components/share/SharePublishActions'
 import { useAnalytics } from '../components/analytics/AnalyticsProvider'
 import SmartTokenEstimate from '../components/economy/SmartTokenEstimate'
@@ -47,7 +48,7 @@ const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para mora
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', neighborhood: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
 const initialGeneration = { mode: 'guided_tour', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
-const initialSocialOptions = Object.freeze({ property: false, propertyText: '', caption: false, captionText: '', cta: false, phone: false, identity: false })
+const initialSocialOptions = Object.freeze({ property: false, caption: false, captionMode: '', captionText: '', cta: false, phone: false, identity: false })
 const ANALYTICS_PRODUCT_BY_JOURNEY = Object.freeze({
   [FURNISH_RENOVATE_JOURNEY_ID]: 'virtual_staging',
   [LIFE_IN_PROPERTY_JOURNEY_ID]: 'vida_no_imovel',
@@ -56,6 +57,11 @@ const ANALYTICS_PRODUCT_BY_JOURNEY = Object.freeze({
 const formatUsLocation = ({ neighborhoodCommunity = '', city = '', county = '', state = '', zipCode = '' }) => [neighborhoodCommunity, city, county, state, zipCode].filter(Boolean).join(', ')
 const normalizeLocale = value => value === 'en-US' ? 'en-US' : 'pt-BR'
 const normalizeMarket = value => value === 'US' ? 'US' : 'BR'
+const hasSocialCaptionPropertyData = property => Boolean(
+  property?.purpose || property?.stage || property?.type || property?.bedrooms || property?.suites || property?.parkingSpaces
+  || property?.area || property?.state || property?.county || property?.city || property?.district || property?.neighborhoodCommunity
+  || property?.zipCode || property?.price || property?.condominium || property?.iptu || property?.description || property?.highlights?.length,
+)
 const VIRTUAL_STAGING_OPTION_KEYS = Object.freeze({ 'Pré-lançamento': 'preLaunch', 'Lançamento': 'launch', 'Em obras': 'underConstruction', 'Pronto para morar': 'moveInReady', 'Disponível já': 'availableNow', Vago: 'vacant', Apartamento: 'apartment', Casa: 'house', Cobertura: 'penthouse', 'Studio / Loft': 'studioLoft', 'Terreno / Lote': 'landLot', Comercial: 'commercial', 'Agende sua visita': 'schedule', 'Saiba mais': 'learn', 'Entre em contato agora': 'contact', 'Fale comigo': 'talk' })
 const getVirtualStagingOptionLabel = (value, t) => VIRTUAL_STAGING_OPTION_KEYS[value] ? t(`virtualStaging.options.${VIRTUAL_STAGING_OPTION_KEYS[value]}`) : value
 const isLifeOrBrokerJourney = journeyId => journeyId === LIFE_IN_PROPERTY_JOURNEY_ID || journeyId === BROKER_PRESENTATION_JOURNEY_ID
@@ -305,7 +311,7 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
         <div className="mt-6 space-y-6">
           {isSocial && (socialOptions?.property || socialOptions?.caption || socialOptions?.cta || socialOptions?.phone || socialOptions?.identity) && <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5" aria-label={locale === 'en-US' ? 'Social campaign details' : 'Detalhes da campanha social'}>
             <h3 className="text-lg font-black text-emerald-950">{locale === 'en-US' ? 'Social sharing details' : 'Detalhes para redes sociais'}</h3>
-            {socialOptions?.property && <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-emerald-950">{socialOptions?.propertyText || (locale === 'en-US' ? 'No property details added.' : 'Nenhum dado do imóvel adicionado.')}</p>}
+            {socialOptions?.property && <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-emerald-950">{socialOptions?.propertySummary || (locale === 'en-US' ? 'No property details added.' : 'Nenhum dado do imóvel adicionado.')}</p>}
             {socialOptions?.caption && <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-emerald-950">{caption || (locale === 'en-US' ? 'No caption added.' : 'Nenhuma legenda adicionada.')}</p>}
             {socialOptions?.cta && <p className="mt-3 text-sm font-bold text-emerald-950">CTA: {socialOptions?.ctaLabel || ''}</p>}
             {socialOptions?.phone && <p className="mt-1 text-sm font-bold text-emerald-950">{locale === 'en-US' ? 'Phone' : 'Telefone'}: {socialOptions?.phoneValue || ''}</p>}
@@ -535,12 +541,15 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     return journeyQuestions.filter(([questionId]) => {
       if (questionId === 'decoration_style') return !transformationType || furnishRenovateRequiresStyle(transformationType)
       if (questionId === 'social_options') return useDestination === 'social'
+      if (questionId === 'social_property_details') return useDestination === 'social' && socialOptions.property
+      if (questionId === 'social_caption_mode') return useDestination === 'social' && socialOptions.caption
+      if (questionId === 'social_caption_custom') return useDestination === 'social' && socialOptions.caption && socialOptions.captionMode === 'custom'
       if (questionId === 'cta') return socialOptions.cta
       if (questionId === 'phone') return socialOptions.phone
       if (questionId === 'professional_identity') return socialOptions.identity
       return true
     })
-  }, [journey.id, socialOptions.cta, socialOptions.identity, socialOptions.phone, transformationType, useDestination])
+  }, [journey.id, socialOptions.caption, socialOptions.captionMode, socialOptions.cta, socialOptions.identity, socialOptions.phone, socialOptions.property, transformationType, useDestination])
   const questionOrder = useMemo(() => questions.map(item => item[0]), [questions])
   const furnishProject = useMemo(() => ({
     transformation_type: transformationType,
@@ -672,7 +681,7 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     images: 'images', purpose: 'purpose', stage: 'stage', type: 'type', facts: 'facts', location: 'location', commercial: 'commercial', highlights: 'highlights', life_scene: 'lifeScene', captions: 'captions', cta: 'cta', phone: 'phone', review: 'review', presenter_reference: 'presenterReference', presenter_photo: 'presenterPhoto', presenter_speech_mode: 'speech', presenter_custom_speech: 'customSpeech', cta_enabled: 'ctaEnabled',
   }[question[0]]
   const furnishCopy = getFurnishRenovateCopy(draftLocale)
-  const smartSpaceQuestions = isFurnishRenovate ? { transformation_type: furnishCopy.transformationQuestion, decoration_style: furnishCopy.styleQuestion, images: furnishCopy.uploadQuestion, use_destination: furnishCopy.destinationQuestion, social_options: furnishCopy.socialOptionsQuestion, review: furnishCopy.reviewQuestion } : null
+  const smartSpaceQuestions = isFurnishRenovate ? { transformation_type: furnishCopy.transformationQuestion, decoration_style: furnishCopy.styleQuestion, images: furnishCopy.uploadQuestion, use_destination: furnishCopy.destinationQuestion, social_options: furnishCopy.socialOptionsQuestion, social_property_details: furnishCopy.socialPropertyQuestion, social_caption_mode: furnishCopy.socialCaptionModeQuestion, social_caption_custom: furnishCopy.socialCaptionCustomQuestion, review: furnishCopy.reviewQuestion } : null
   const localizedQuestion = question[0] === 'professional_identity' ? (draftMarket === 'US' ? 'Would you like to include your professional information?' : 'Deseja incluir sua identificação profissional?') : isFurnishRenovate && smartSpaceQuestions ? smartSpaceQuestions[question[0]] : localizedQuestionKey ? t(`virtualStaging.questions.${localizedQuestionKey}`) : question[0] === 'presenter_reference_required' ? (draftLocale === 'en-US' ? 'This module uses your photo as a reference to create the presenter. Without a reference photo, use Real Estate Video to create your presentation.' : 'Este módulo utiliza uma foto sua como referência para criar o apresentador. Sem uma foto de referência, utilize o Vídeo Imobiliário para criar sua apresentação.') : question[2]
   const reachedStep = isFurnishRenovate && !hasStartedFurnish
     ? null
@@ -1109,7 +1118,18 @@ function VirtualStagingJourney({ journey, onChooseAnother }) {
     },
   } : undefined
   if (furnishGenerationBusy) return <FurnishRenovateProcessing results={furnishResults} t={t} />
-  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} socialOptions={{ ...socialOptions, destination: useDestination, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
+  if (isFurnishRenovate && status === 'completed' && furnishResults.length > 0) {
+    const propertyLocation = draftMarket === 'US' ? formatUsLocation(property) : formatVirtualStagingLocation(property)
+    const propertyFacts = getVirtualStagingMeasureFields(property.type).map(field => property[field] && `${property[field]} ${field === 'area' ? (draftMarket === 'US' ? 'sqft' : 'm²') : t(`virtualStaging.measures.${field}`).toLocaleLowerCase(draftLocale)}`).filter(Boolean).join(' · ')
+    const propertySummary = [
+      property.type && getVirtualStagingOptionLabel(property.type, t),
+      property.purpose && t(`virtualStaging.purpose.${property.purpose}`),
+      propertyLocation,
+      propertyFacts,
+      property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale: draftLocale, market: draftMarket })).join(' · '),
+    ].filter(Boolean).join('\n')
+    return <FurnishRenovateDelivery results={furnishResults} onCreateNew={reset} onRetryMaterialization={retryFurnishResultMaterialization} publication={smartSpacePublication} socialOptions={{ ...socialOptions, destination: useDestination, propertySummary, ctaLabel: getVirtualStagingOptionLabel(cta, t), phoneValue: includePhone ? phone : '', identityValue: professionalIdentitySelection.enabled ? professionalIdentity?.formatted || '' : '' }} locale={draftLocale} t={t} />
+  }
   if (result) {
     const sourceType = isLifeInProperty ? 'smart_space_life' : 'smart_space_broker'
     return <section className="mt-10"><CampaignPackage data={{ ...result.campaignPackage, sourceProduct: getJourneyPresentation(journey, t).title, sourceType, sourceId: result.jobId, mediaAssetId: result.jobId, mediaType: 'video', previewUrl: result.signedVideoUrl, downloadUrl: result.signedVideoUrl, unifiedSocialPublishing: true }} smartSpacePublish={smartSpacePublication} mediaPresentation="mobile" onCreateNew={reset} createNewLabel={t('virtualStaging.lifeBroker.newProject')} uiLabels={videoUiLabels} /></section>
@@ -1352,10 +1372,49 @@ function Question(props) {
     return <div className="space-y-4">
       <p className="text-sm font-semibold text-slate-600">{furnishCopy.socialOptionsHelp}</p>
       <div className="grid gap-2 sm:grid-cols-2">{getFurnishRenovateSocialOptions(locale).map(option => <label key={option.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800"><input type="checkbox" checked={Boolean(socialOptions[option.id])} onChange={() => toggle(option.id)} className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />{option.label}</label>)}</div>
-      {socialOptions.caption && <label className="block text-xs font-black text-slate-700">{furnishCopy.socialCaption}<textarea value={socialOptions.captionText || ''} onChange={event => setSocialOptions(current => ({ ...current, captionText: event.target.value }))} rows={4} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium" placeholder={locale === 'en-US' ? 'Write the caption you want to use.' : 'Escreva a legenda que deseja usar.'} /></label>}
-      {socialOptions.property && <label className="block text-xs font-black text-slate-700">{furnishCopy.socialProperty}<textarea value={socialOptions.propertyText || ''} onChange={event => setSocialOptions(current => ({ ...current, propertyText: event.target.value }))} rows={3} className="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm font-medium" placeholder={locale === 'en-US' ? 'Add only the property details you want to use.' : 'Adicione apenas os dados do imóvel que deseja usar.'} /></label>}
       {cont(false, selectedLabels.join(' · ') || (locale === 'en-US' ? 'No optional social items selected' : 'Nenhum item social opcional selecionado'), nextQuestionId)}
     </div>
+  }
+  if (id === 'social_property_details' && isFurnishRenovate) {
+    const fields = getVirtualStagingMeasureFields(property.type)
+    const fieldLabels = { bedrooms: t('virtualStaging.measures.bedrooms'), suites: t('virtualStaging.measures.suites'), parkingSpaces: t('virtualStaging.measures.parkingSpaces'), area: t('virtualStaging.measures.area') }
+    const stageOptions = property.purpose === 'rent' ? LIFE_RENTAL_STAGE_OPTIONS : STAGES
+    const highlightGroups = getVirtualStagingHighlightGroups(property.type).map(group => ({ ...group, items: group.items.filter(item => isVirtualStagingHighlightAvailableForMarket(item, market)) })).filter(group => group.items.length)
+    const location = market === 'US' ? formatUsLocation(property) : formatVirtualStagingLocation({ ...property, district: normalizeVirtualStagingDistrict(property.district) })
+    const selectedHighlights = property.highlights.map(value => getVirtualStagingHighlightLabel(value, { locale, market })).join(' · ')
+    const selectedFacts = fields.filter(field => property[field] !== '').map(field => `${property[field]} ${field === 'area' ? areaUnit : fieldLabels[field].toLocaleLowerCase(locale)}`).join(' · ')
+    const selectedDetails = [property.purpose && t(`virtualStaging.purpose.${property.purpose}`), property.stage && optionLabel(property.stage), property.type && optionLabel(property.type), selectedFacts, location, property.price, selectedHighlights].filter(Boolean).join(' · ')
+    const nextQuestionId = getVirtualStagingNextQuestion({ questionId: id, journeyId, socialOptions })
+    const selectTile = (items, value, onSelect) => <div className="mt-2 flex flex-wrap gap-2">{items.map(item => <button key={item.id} type="button" onClick={() => onSelect(item.id)} className={`min-h-10 rounded-xl border px-3 py-2 text-sm font-black transition ${value === item.id ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100' : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'}`}>{item.label}</button>)}</div>
+    return <div className="space-y-5">
+      <p className="text-sm font-semibold leading-6 text-slate-600">{furnishCopy.socialPropertyHelp}</p>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <fieldset><legend className="text-xs font-black">{t('virtualStaging.questions.purpose')}</legend>{selectTile([{ id: 'sale', label: t('virtualStaging.purpose.sale') }, { id: 'rent', label: t('virtualStaging.purpose.rent') }], property.purpose, value => setPropertyField('purpose', value))}</fieldset>
+        <fieldset><legend className="text-xs font-black">{t('virtualStaging.questions.stage')}</legend>{selectTile(stageOptions.map(value => ({ id: value, label: optionLabel(value) })), property.stage, value => setPropertyField('stage', value))}</fieldset>
+        <fieldset className="sm:col-span-2"><legend className="text-xs font-black">{t('virtualStaging.questions.type')}</legend>{selectTile(VIRTUAL_STAGING_PROPERTY_TYPES.map(value => ({ id: value, label: optionLabel(value) })), property.type, value => setPropertyField('type', value))}</fieldset>
+      </div>
+      <section><h4 className="text-xs font-black">{t('virtualStaging.questions.facts')}</h4><div className="mt-2 grid gap-4 sm:grid-cols-2">{fields.map(field => field === 'area' ? <label key={field} className="text-xs font-black">{fieldLabels[field]}<div className="mt-1 flex rounded-xl border bg-white"><input aria-label={fieldLabels[field]} value={property.area} onChange={event => { const digits = event.target.value.replace(/\D/g, '').slice(0, 6); setPropertyField('area', Number(digits) > 0 ? String(Number(digits)) : '') }} inputMode="numeric" className="min-w-0 flex-1 rounded-xl border-0 p-3 outline-none" /><span className="pr-3 pt-3 text-sm font-black text-slate-500">{areaUnit}</span></div></label> : <fieldset key={field}><legend className="text-xs font-black">{fieldLabels[field]}</legend>{selectTile(VIRTUAL_STAGING_MEASURE_OPTIONS[field].map(value => ({ id: value, label: value })), property[field], value => setPropertyField(field, value))}</fieldset>)}</div></section>
+      <section><h4 className="text-xs font-black">{t('virtualStaging.questions.location')}</h4><div className="mt-2">{market === 'US' ? <StudioUsLocation value={property} onChange={setProperty} showContinue={false} /> : <div className="space-y-3"><SmartCarouselStateSelect value={property.state} onChange={value => { setPropertyField('state', value); setPropertyField('city', '') }} />{property.state && <SmartCarouselCitySelect uf={property.state} value={property.city} onChange={value => setPropertyField('city', value)} />}<input aria-label={t('virtualStaging.location.neighborhood')} value={property.district} onChange={event => setPropertyField('district', event.target.value)} placeholder={t('virtualStaging.location.neighborhood')} className="w-full rounded-xl border p-3" /></div>}</div></section>
+      <section><h4 className="text-xs font-black">{t('virtualStaging.questions.commercial')}</h4><div className="mt-2 grid gap-3 sm:grid-cols-3">{[['price', property.purpose === 'rent' ? t('virtualStaging.lifeBroker.rent') : t('virtualStaging.lifeBroker.price')], ['condominium', t('virtualStaging.lifeBroker.condominium')], ['iptu', t('virtualStaging.lifeBroker.tax')]].map(([field, label]) => <label key={field} className="text-xs font-black">{label}<input aria-label={label} value={property[field]} onChange={event => setPropertyField(field, formatVirtualStagingCurrency(event.target.value))} inputMode="numeric" placeholder={t('virtualStaging.lifeBroker.currencyPlaceholder')} className="mt-1 w-full rounded-xl border p-3" /></label>)}</div></section>
+      <section><h4 className="text-xs font-black">{t('virtualStaging.questions.highlights')}</h4><div className="mt-2 space-y-4">{highlightGroups.map(group => <div key={group.title}><p className="text-xs font-bold text-slate-500">{getVirtualStagingHighlightGroupLabel(group.title, { locale })}</p><div className="mt-2 flex flex-wrap gap-2">{group.items.map(item => <button key={item} type="button" disabled={!property.highlights.includes(item) && property.highlights.length >= 10} onClick={() => toggleHighlight(item)} className={`rounded-full border px-3 py-2 text-xs font-bold disabled:opacity-45 ${property.highlights.includes(item) ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}>{getVirtualStagingHighlightLabel(item, { locale, market })}</button>)}</div></div>)}</div></section>
+      {cont(false, selectedDetails || (locale === 'en-US' ? 'No property details added' : 'Nenhum dado do imóvel adicionado'), nextQuestionId, () => { if (market !== 'US') setPropertyField('district', normalizeVirtualStagingDistrict(property.district)) })}
+    </div>
+  }
+  if (id === 'social_caption_mode' && isFurnishRenovate) {
+    const hasDetails = hasSocialCaptionPropertyData(property)
+    const nextQuestionId = getVirtualStagingNextQuestion({ questionId: id, answerId: 'generated', journeyId, socialOptions })
+    const generateCaption = () => buildVirtualStagingCampaignPackage({ property, language: locale, journeyId: FURNISH_RENOVATE_JOURNEY_ID }).aiCampaigns?.[0]?.instagram || ''
+    return <div className="space-y-4">
+      {!hasDetails && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950">{furnishCopy.socialCaptionNeedsDetails}</p>}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button type="button" disabled={!hasDetails} onClick={() => answerQuestion({ answer: furnishCopy.socialCaptionGenerated, answerId: 'generated', nextQuestionId, apply: () => setSocialOptions(current => ({ ...current, captionMode: 'generated', captionText: generateCaption() })) })} className="rounded-smart-control border border-slate-200 bg-white p-4 text-left font-bold transition hover:border-primary-300 disabled:cursor-not-allowed disabled:opacity-45"><b className="text-sm">{furnishCopy.socialCaptionGenerated}</b></button>
+        <button type="button" onClick={() => answerQuestion({ answer: furnishCopy.socialCaptionCustom, answerId: 'custom', apply: () => setSocialOptions(current => ({ ...current, captionMode: 'custom', captionText: current.captionMode === 'custom' ? current.captionText : '' })) })} className="rounded-smart-control border border-slate-200 bg-white p-4 text-left font-bold transition hover:border-primary-300"><b className="text-sm">{furnishCopy.socialCaptionCustom}</b></button>
+      </div>
+    </div>
+  }
+  if (id === 'social_caption_custom' && isFurnishRenovate) {
+    const nextQuestionId = getVirtualStagingNextQuestion({ questionId: id, journeyId, socialOptions })
+    return <div className="space-y-4"><SocialCaptionEditor value={socialOptions.captionText || ''} onChange={value => setSocialOptions(current => ({ ...current, captionText: value, captionMode: 'custom' }))} placeholder={locale === 'en-US' ? 'Write the caption you want to use.' : 'Escreva a legenda que deseja usar.'} uiLabels={{ label: furnishCopy.socialCaptionCustomQuestion, help: locale === 'en-US' ? 'You can review and edit it again before publishing.' : 'Você poderá revisar e editar novamente antes de publicar.', limit: t('virtualStaging.social.caption.limit') }} />{cont(!countSocialCaptionCharacters(socialOptions.captionText), socialOptions.captionText, nextQuestionId, () => setSocialOptions(current => ({ ...current, captionMode: 'custom' })))}</div>
   }
   if (id === 'presenter_reference') return choices(BROKER_REFERENCE_OPTIONS.map(option => ({ ...option, label: option.id === 'yes' ? t('common.yes') : t('common.no') })), presenterReferenceDecision === true ? 'yes' : presenterReferenceDecision === false ? 'no' : '', (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterReferenceDecision(value === 'yes'); if (value === 'no') clearPresenterReference() } }))
   if (id === 'presenter_speech_mode') return choices(BROKER_SPEECH_OPTIONS.map(option => ({ ...option, label: t(`virtualStaging.speech.${option.id}`) })), presenterSpeechMode, (value, label) => answerQuestion({ answer: label, answerId: value, apply: () => { setPresenterSpeechMode(value); if (value !== 'custom') setPresenterCustomSpeech('') } }))
