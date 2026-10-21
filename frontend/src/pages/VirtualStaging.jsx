@@ -47,7 +47,7 @@ const STAGES = ['Pré-lançamento', 'Lançamento', 'Em obras', 'Pronto para mora
 const CTAS = ['Agende sua visita', 'Saiba mais', 'Entre em contato agora', 'Fale comigo']
 const initialProperty = { purpose: '', stage: '', type: '', bedrooms: '', suites: '', parkingSpaces: '', area: '', state: '', county: '', city: '', district: '', neighborhood: '', zipCode: '', neighborhoodCommunity: '', price: '', condominium: '', iptu: '', highlights: [], description: '' }
 const initialGeneration = { mode: 'guided_tour', narration: '', captions: '', furniture: 'original', stagingPresentation: 'final_only', language: 'pt-BR' }
-const initialSocialOptions = Object.freeze({ property: false, propertyText: '', caption: false, captionText: '', cta: false, phone: false, identity: false, publish: false, tiktok: false })
+const initialSocialOptions = Object.freeze({ property: false, propertyText: '', caption: false, captionText: '', cta: false, phone: false, identity: false })
 const ANALYTICS_PRODUCT_BY_JOURNEY = Object.freeze({
   [FURNISH_RENOVATE_JOURNEY_ID]: 'virtual_staging',
   [LIFE_IN_PROPERTY_JOURNEY_ID]: 'vida_no_imovel',
@@ -319,12 +319,12 @@ function FurnishRenovateDelivery({ results, onCreateNew, onRetryMaterialization,
             strategy: [locale === 'en-US' ? 'Use this approved caption when sharing the transformation.' : 'Use esta legenda aprovada ao divulgar a transformação.'],
           }} />}
           {results.map(result => result.status === 'completed'
-            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} social={isSocial && Boolean(socialOptions?.publish)} caption={caption} locale={locale} t={t} />
+            ? <FurnishRenovateResultCard key={result.id} result={result} publication={publication} social={isSocial} caption={caption} locale={locale} t={t} />
             : result.status === 'result_unavailable'
               ? <article key={result.id} className="rounded-3xl border border-primary-200 bg-primary-50 p-4 sm:p-5" aria-label={`${copy('loadingResult')} ${result.originalIndex + 1}`}><h3 className="font-black text-primary-950">{t('virtualStaging.smartSpace.image')} {result.originalIndex + 1}</h3>{result.originalPreview && <img src={result.originalPreview} alt={`${t('virtualStaging.smartSpace.originalImage')} ${result.originalIndex + 1}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" />}<p className="mt-3 text-sm font-bold text-primary-900">{copy('transformed')}</p><ProductButton type="button" size="lg" variant="secondary" onClick={() => onRetryMaterialization(result.id)} className="mt-4 w-full sm:w-auto">{copy('retry')}</ProductButton></article>
               : <article key={result.id} className="rounded-3xl border border-amber-200 bg-amber-50 p-4 sm:p-5" aria-label={`${copy('failedImage')} ${result.originalIndex + 1}`}><h3 className="font-black text-amber-950">{t('virtualStaging.smartSpace.image')} {result.originalIndex + 1}</h3><img src={result.originalPreview} alt={`${t('virtualStaging.smartSpace.originalImage')} ${result.originalIndex + 1} ${copy('notCompleted')}`} className="mt-3 max-h-80 w-full rounded-2xl object-contain" /><p className="mt-3 text-sm font-bold text-amber-900">{copy('transformFailed')}</p></article>)}
         </div>
-        {isSocial && socialOptions?.tiktok && completedResults.some(result => result.video?.state === 'completed' && result.video.signedUrl) && <SharePublishActions
+        {isSocial && completedResults.some(result => result.video?.state === 'completed' && result.video.signedUrl) && <SharePublishActions
           media={completedResults.filter(result => result.video?.state === 'completed' && result.video.signedUrl).map(result => ({ url: result.video.signedUrl, name: `snetia-space-${result.originalIndex + 1}.mp4`, type: 'video', mimeType: 'video/mp4' }))}
           shareTitle={locale === 'en-US' ? 'Snetia Space transformation' : 'Transformação Snetia Space'}
           shareText={caption}

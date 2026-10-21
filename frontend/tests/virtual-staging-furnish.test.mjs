@@ -44,10 +44,11 @@ test('exposes only the two approved actions for new projects and preserves legac
 test('uses the approved destination labels and optional social controls in BR and US', () => {
   assert.deepEqual(getFurnishRenovateDestinationOptions('pt-BR'), [{ id: 'social', label: 'Redes sociais' }, { id: 'portal', label: 'Portal / plataforma imobiliária' }])
   assert.deepEqual(getFurnishRenovateDestinationOptions('en-US'), [{ id: 'social', label: 'Social media' }, { id: 'portal', label: 'Real estate portal / platform' }])
-  assert.deepEqual(getFurnishRenovateSocialOptions('en-US').map(option => option.id), ['property', 'caption', 'cta', 'phone', 'identity', 'publish', 'tiktok'])
+  assert.deepEqual(getFurnishRenovateSocialOptions('en-US').map(option => option.id), ['property', 'caption', 'cta', 'phone', 'identity'])
   const en = getFurnishRenovateCopy('en-US')
   assert.equal(en.destinationQuestion, 'Where will you use this content?')
-  assert.equal(en.socialOptionsQuestion, 'What would you like to prepare for sharing?')
+  assert.equal(en.socialOptionsQuestion, 'What would you like to include?')
+  assert.equal(getFurnishRenovateCopy('pt-BR').socialOptionsQuestion, 'O que deseja incluir no material?')
 })
 
 test('branches after upload to clean portal delivery or optional social questions', () => {
@@ -78,7 +79,7 @@ test('preserves the normal 1–5 contract and 30/60 ST economy for all accounts'
   assert.doesNotMatch(page, /1 to 10|1–10|1-10/)
 })
 
-test('keeps portal delivery clean and enables social publication and TikTok handoff only for Social media', () => {
+test('keeps portal delivery clean and exposes social publication only after generation', () => {
   assert.match(page, /const isSocial = socialOptions\?\.destination === 'social'/)
   assert.match(page, /social && publication\?\.enabled/)
   assert.match(page, /supportedNetworks=\{\['tiktok'\]\}/)
@@ -86,6 +87,11 @@ test('keeps portal delivery clean and enables social publication and TikTok hand
   assert.match(page, /<SharePublishActions/)
   assert.match(page, /isSocial && socialOptions\?\.caption && caption && <CampaignPackage/)
   assert.match(page, /onSaveProfile=\{async patch =>/)
+  const socialQuestion = page.slice(page.indexOf("if (id === 'social_options'"), page.indexOf("if (id === 'presenter_reference')"))
+  assert.doesNotMatch(socialQuestion, /publish|tiktok|Instagram\/Facebook|TikTok/)
+  const delivery = page.slice(page.indexOf('function FurnishRenovateDelivery'), page.indexOf('function FurnishRenovateProcessing'))
+  assert.match(delivery, /social=\{isSocial\}/)
+  assert.match(delivery, /isSocial && completedResults\.some/)
 })
 
 test('keeps final review, Back/Edit/reset, and historical recovery compatible', () => {

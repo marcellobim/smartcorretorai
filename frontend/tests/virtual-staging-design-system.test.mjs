@@ -45,6 +45,18 @@ test('keeps the approved destination branch after the images', () => {
   )
 })
 
+test('keeps publishing decisions out of the social briefing and in the generated delivery', () => {
+  assert.deepEqual(
+    FURNISH_RENOVATE_QUESTIONS.map(([id]) => id),
+    ['transformation_type', 'decoration_style', 'images', 'use_destination', 'social_options', 'cta', 'phone', 'professional_identity', 'review'],
+  )
+  const socialQuestion = page.slice(page.indexOf("if (id === 'social_options'"), page.indexOf("if (id === 'presenter_reference')"))
+  assert.doesNotMatch(socialQuestion, /Publish to Instagram|Publicar no Instagram|Send to TikTok|Enviar para TikTok|publish|tiktok/i)
+  const delivery = page.slice(page.indexOf('function FurnishRenovateDelivery'), page.indexOf('function FurnishRenovateProcessing'))
+  assert.match(delivery, /social=\{isSocial\}/)
+  assert.match(delivery, /isSocial && completedResults\.some/)
+})
+
 test('keeps the AI notice inside final review without a dedicated step', () => {
   assert.deepEqual(FURNISH_RENOVATE_QUESTIONS.at(-1), ['review', 6, 'Revise seu projeto'])
   assert.equal(getVirtualStagingNextQuestion({ questionId: 'images', journeyId: FURNISH_RENOVATE_JOURNEY_ID }), 'use_destination')

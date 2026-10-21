@@ -49,9 +49,9 @@ export const FURNISH_RENOVATE_COPY = Object.freeze({
   uploadDescription: 'Adicione de 1 a 5 fotos. Cada imagem será analisada e transformada individualmente.',
   uploadHint: 'Para melhores resultados, use fotos nítidas, bem iluminadas e que mostrem claramente o ambiente.',
   destinationQuestion: 'Onde você vai usar este material?',
-  socialOptionsQuestion: 'O que deseja preparar para divulgar?',
+  socialOptionsQuestion: 'O que deseja incluir no material?',
   socialOptionsHelp: 'Tudo é opcional. Selecione apenas o que deseja incluir.',
-  socialProperty: 'Dados do imóvel', socialCaption: 'Legenda', socialCta: 'CTA', socialPhone: 'Telefone', socialIdentity: 'Identificação profissional', socialPublish: 'Publicar no Instagram/Facebook', socialTikTok: 'Enviar para TikTok',
+  socialProperty: 'Dados do imóvel', socialCaption: 'Legenda', socialCta: 'CTA', socialPhone: 'Telefone', socialIdentity: 'Identificação profissional',
   reviewQuestion: 'Revise seu projeto',
   reviewNotice: FURNISH_RENOVATE_AI_NOTICE,
   imagesConfirmation: 'Ótimo! As fotos serão usadas na ordem escolhida.',
@@ -64,9 +64,9 @@ const FURNISH_RENOVATE_EN_COPY = Object.freeze({
   uploadDescription: 'Add 1 to 5 photos. Each image will be analyzed and transformed individually.',
   uploadHint: 'For best results, use sharp, well-lit photos that clearly show the space.',
   destinationQuestion: 'Where will you use this content?',
-  socialOptionsQuestion: 'What would you like to prepare for sharing?',
+  socialOptionsQuestion: 'What would you like to include?',
   socialOptionsHelp: 'Everything is optional. Select only what you want to include.',
-  socialProperty: 'Property details', socialCaption: 'Caption', socialCta: 'CTA', socialPhone: 'Phone', socialIdentity: 'Professional identity', socialPublish: 'Publish to Instagram/Facebook', socialTikTok: 'Send to TikTok',
+  socialProperty: 'Property details', socialCaption: 'Caption', socialCta: 'CTA', socialPhone: 'Phone', socialIdentity: 'Professional identity',
   reviewQuestion: 'Review your project',
   reviewNotice: 'Because the result is created with artificial intelligence, some details of the space may change to improve the visual composition.',
   imagesConfirmation: 'Great! The photos will be used in the selected order.',
@@ -114,8 +114,6 @@ export function getFurnishRenovateSocialOptions(locale = 'pt-BR') {
     { id: 'cta', label: copy.socialCta },
     { id: 'phone', label: copy.socialPhone },
     { id: 'identity', label: copy.socialIdentity },
-    { id: 'publish', label: copy.socialPublish },
-    { id: 'tiktok', label: copy.socialTikTok },
   ]
 }
 
