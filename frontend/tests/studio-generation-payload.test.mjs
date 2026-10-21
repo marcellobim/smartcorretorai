@@ -64,3 +64,14 @@ test('the same real handler builder preserves optional US values and supports fr
   assert.deepEqual(received.briefing.professional_identity, { enabled: false })
   assert.equal('inputImage1Path' in received, false)
 })
+
+test('the Real Estate Commercial resolves controlled US labels without translating customer-entered text', async () => {
+  const { localizeStudioControlledValue } = await loadStudio()
+
+  assert.equal(localizeStudioControlledValue('houseLocation', 'CONDOMINIO FECHADO', 'en-US'), 'Gated community')
+  assert.equal(localizeStudioControlledValue('houseLocation', 'BAIRRO ABERTO', 'en-US'), 'Open neighborhood')
+  assert.equal(localizeStudioControlledValue('differentials', 'OPORTUNIDADE', 'en-US'), 'Opportunity')
+  assert.equal(localizeStudioControlledValue('cta', 'SAIBA MAIS', 'en-US'), 'Learn more')
+  assert.equal(localizeStudioControlledValue('cta', 'SAIBA MAIS', 'pt-BR'), 'SAIBA MAIS')
+  assert.equal(localizeStudioControlledValue('differentials', 'Ocean view written by the customer', 'en-US'), 'Ocean view written by the customer')
+})

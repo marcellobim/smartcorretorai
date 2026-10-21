@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const page = readFileSync(new URL('../src/pages/StudioHero.jsx', import.meta.url), 'utf8')
 const en = readFileSync(new URL('../src/i18n/messages/en-US.js', import.meta.url), 'utf8')
+const pt = readFileSync(new URL('../src/i18n/messages/pt-BR.js', import.meta.url), 'utf8')
 
 test('US Studio routes upload, recovery, errors, review and loading copy through the English catalog', () => {
   for (const key of [
@@ -39,11 +40,17 @@ test('US Studio does not retain known Portuguese hard-coded text in its active u
 })
 
 test('US Studio resolves saved enum IDs in the same catalog used by questions and delivery chips', () => {
-  for (const value of ["EXCLUSIVO: 'Exclusive'", "LANCAMENTO: 'New release'", "CONTRATAMOS: 'We are hiring'", "linkedin: 'LinkedIn when applicable'"]) {
+  for (const value of ["EXCLUSIVO: 'Exclusive'", "LANCAMENTO: 'New release'", "CONTRATAMOS: 'We are hiring'", "'CONDOMINIO FECHADO': 'Gated community'", "'BAIRRO ABERTO': 'Open neighborhood'", "OPORTUNIDADE: 'Opportunity'", "'SAIBA MAIS': 'Learn more'", "linkedin: 'LinkedIn when applicable'"]) {
     assert.match(en, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  for (const value of ["'CONDOMINIO FECHADO': 'Condomínio fechado'", "'BAIRRO ABERTO': 'Bairro aberto'", "OPORTUNIDADE: 'Oportunidade'", "'SAIBA MAIS': 'Saiba mais'"]) {
+    assert.match(pt, new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
   assert.match(page, /optionLabel\('propertyTypes', answers\.propertyType\)/)
   assert.match(page, /optionLabel\('profiles', answers\.profile\)/)
+  assert.match(page, /optionLabel\('houseLocation', answers\.houseLocationType\)/)
+  assert.match(page, /localizeStudioControlledValue\('differentials', value, displayLanguage\)/)
+  assert.match(page, /localizeStudioControlledValue\([\s\S]*'cta',[\s\S]*displayLanguage/)
   assert.match(page, /optionLabel\('visualStyle', answers\.visualStyle\)/)
   assert.match(page, /t\(`studio\.delivery\.items\.\$\{item\}`\)/)
 })

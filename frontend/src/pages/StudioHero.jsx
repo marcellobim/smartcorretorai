@@ -22,6 +22,7 @@ import { getConversationControls } from '../config/conversationControls'
 import { buildProfessionalIdentity, professionalIdentityNeedsAttention } from '../config/professionalProfile'
 import { useAccountAnalytics } from '../hooks/useAccountAnalytics'
 import { useLocale } from '../i18n/useLocale'
+import enUSMessages from '../i18n/messages/en-US'
 import { ACCOUNT_ANALYTICS_PRODUCTS as PRODUCTS, ACCOUNT_ANALYTICS_STEPS as STEPS } from '../lib/account-analytics'
 import {
   ProductButton,
@@ -411,8 +412,19 @@ const STUDIO_US_SYSTEM_LABELS = Object.freeze({
   'LEADS FORNECIDOS': 'Provided leads', 'MARKETING DIGITAL': 'Digital marketing', TREINAMENTO: 'Training', 'PLANO DE CARREIRA': 'Career plan', 'ESTRUTURA MODERNA': 'Modern structure', TECNOLOGIA: 'Technology', 'AMBIENTE COLABORATIVO': 'Collaborative environment', FLEXIBILIDADE: 'Flexibility', OUTRO: 'Other',
 })
 
+export function localizeStudioControlledValue(group, value, language = 'pt-BR') {
+  if (!value || language !== 'en-US') return value || ''
+
+  // Values stored in a draft are canonical IDs. Resolve only known IDs from
+  // the active catalog; text entered by the customer deliberately falls back
+  // unchanged.
+  return enUSMessages.studio.options?.[group]?.[value]
+    || STUDIO_US_SYSTEM_LABELS[value]
+    || value
+}
+
 function formatStudioSystemOption(value, market) {
-  return market === 'US' ? (STUDIO_US_SYSTEM_LABELS[value] || value) : value
+  return localizeStudioControlledValue('houseLocation', value, market === 'US' ? 'en-US' : 'pt-BR')
 }
 
 const SALE_DIFFERENTIAL_OPTIONS = [
@@ -1451,7 +1463,7 @@ export default function StudioHero() {
     1: answers.objective ? optionLabel('objectives', answers.objective) : '',
     2: isPropertyCampaign ? optionLabel('propertyTypes', answers.propertyType) : displayLocation,
     [profileStep]: hasProfileStep ? optionLabel('profiles', answers.profile) : '',
-    [houseLocationStep]: hasHouseLocationStep ? answers.houseLocationType : '',
+    [houseLocationStep]: hasHouseLocationStep ? optionLabel('houseLocation', answers.houseLocationType) : '',
     [stageStep]: hasStageStep ? answers.stage : '',
     [landAreaStep]: hasLandAreaStep ? formatLandArea(answers.area) : '',
     [landImaginationStep]: hasLandImaginationStep
@@ -1487,7 +1499,9 @@ export default function StudioHero() {
     [uploadStep]: isFreeAiMode
       ? 'Criacao livre com IA'
       : IMAGE_SLOTS.every((slot) => files[slot.key])
-        ? '1 imagem selecionada'
+        ? t('studio.upload.selected')
+          .replace('{count}', String(IMAGE_SLOTS.length))
+          .replace('{limit}', String(IMAGE_SLOTS.length))
         : '',
   }
   const studioVisualStep = getStudioVisualStep({
@@ -3781,12 +3795,12 @@ function StudioChecklist({ answers, cityValue, districtValue, configuration, fil
     [t('studio.summary.closing'), optionLabel('cta', answers.cta)],
   ]
   const rows = [
-    [t('studio.summary.objective'), getObjectiveSummaryLabel(answers.objective), 1],
+    [t('studio.summary.objective'), optionLabel('objectives', answers.objective), 1],
     ...(isPropertyCampaign ? [[isCommercialType(answers.propertyType) ? t('studio.summary.commercialType') : t('studio.summary.property'), optionLabel('propertyTypes', answers.propertyType), 2]] : []),
     ...(isPropertyCapture ? [[market === 'US' ? 'Requested property type' : 'Tipo desejado', optionLabel('propertyTypes', answers.propertyType), captureTypeStep]] : []),
     ...(isBrokerCapture ? [[market === 'US' ? 'Professional' : 'Profissional', optionLabel('propertyTypes', answers.propertyType), captureTypeStep]] : []),
     ...(hasProfileStep ? [[t('studio.summary.profile'), optionLabel('profiles', answers.profile), profileStep]] : []),
-    ...(hasHouseLocationStep ? [[market === 'US' ? 'House location' : 'Localização da casa', formatStudioSystemOption(answers.houseLocationType, market), houseLocationStep]] : []),
+    ...(hasHouseLocationStep ? [[market === 'US' ? 'House location' : 'Localização da casa', optionLabel('houseLocation', answers.houseLocationType), houseLocationStep]] : []),
     ...(hasLandAreaStep ? [[market === 'US' ? 'Approximate area' : 'Área aproximada', formatLandArea(answers.area), landAreaStep]] : []),
     ...(hasLandImaginationStep ? [[market === 'US' ? 'Imagine construction' : 'Imaginar construção', answers.imagineConstruction === 'yes' ? t('common.yes') : t('common.no'), landImaginationStep]] : []),
     ...(hasLandConceptStep ? [[market === 'US' ? 'Concept proposal' : 'Proposta conceitual', answers.imaginedConstructionType, landConceptStep]] : []),
@@ -3984,6 +3998,14 @@ function ErrorCard({ message, imageErrorTarget, onEditImages }) {
 function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], studioPublish, answers, cityValue, districtValue, compact = false, uiLabels, language = 'pt-BR', onReset }) {
   const { t, market } = useLocale()
   const completed = Boolean(videoUrl)
+  const displayLanguage = market === 'US' ? 'en-US' : 'pt-BR'
+  const displayHighlights = getStudioCopyFeatures(answers)
+    .map((value) => localizeStudioControlledValue('differentials', value, displayLanguage))
+  const displayCta = localizeStudioControlledValue(
+    'cta',
+    formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
+    displayLanguage,
+  )
   const deliveryInput = { answers, districtValue, cityValue, language }
   const deliveryTexts = completed
     ? (publicationOptions.length === 3 ? publicationOptions : buildDeliveryTexts(deliveryInput))
@@ -4014,8 +4036,8 @@ function ResultPanel({ videoUrl, sourceId, sourceType, publicationOptions = [], 
           bedrooms: answers.bedrooms,
           ...(market === 'US' ? { bathrooms: answers.bathrooms, area: answers.sqft } : { suites: answers.suites, area: answers.area }),
           parkingSpaces: answers.parking,
-          highlights: getStudioCopyFeatures(answers),
-          cta: formatStudioHeroFinalCta(buildStudioHeroFinalCta(answers)) || answers.cta,
+          highlights: displayHighlights,
+          cta: displayCta,
           contactAuthorized: false,
           existingTexts: deliveryTexts,
           googleAds,
